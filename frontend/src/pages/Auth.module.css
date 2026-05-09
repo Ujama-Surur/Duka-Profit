@@ -1,0 +1,155 @@
+.authPage {
+  min-height: 100vh;
+  display: flex;
+  align-items: stretch;
+  background: var(--bg);
+}
+
+.authCard {
+  width: 100%;
+  max-width: 460px;
+  padding: 48px 40px;
+  background: white;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  position: relative;
+  z-index: 1;
+}
+
+.authLogo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.authLogoIcon {
+  font-size: 36px;
+}
+
+.authLogoText {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--green-primary);
+}
+
+.authHeader h1 {
+  font-size: 28px;
+  color: var(--text);
+}
+
+.authHeader p {
+  color: var(--text-muted);
+  font-size: 15px;
+  margin-top: 4px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form input.error {
+  border-color: #EF4444;
+}
+
+.authFooter {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 15px;
+}
+
+.authLink {
+  color: var(--green-primary);
+  font-weight: 700;
+  text-decoration: none;
+}
+.authLink:hover { text-decoration: underline; }
+
+.demoHint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--yellow-light);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  color: var(--yellow-dark);
+  font-weight: 500;
+  border: 1px solid #FDE68A;
+}
+
+/* Decorative panel */
+.authDecor {
+  flex: 1;
+  background: linear-gradient(135deg, var(--green-primary) 0%, var(--green-dark) 60%, #0D4023 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.decorBg {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(134,239,172,0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(250,204,21,0.1) 0%, transparent 50%);
+}
+
+.decorCard {
+  background: rgba(255,255,255,0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: var(--radius-xl);
+  padding: 32px 40px;
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+
+.decorAmount {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 42px;
+  font-weight: 800;
+  color: var(--yellow-primary);
+  line-height: 1.2;
+}
+
+.decorLabel {
+  display: block;
+  color: rgba(255,255,255,0.8);
+  font-size: 16px;
+  margin-top: 8px;
+}
+
+.decorDots {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+/* Three decorative dots */
+.decorCard::after {
+  content: '● ● ●';
+  display: block;
+  color: rgba(255,255,255,0.3);
+  font-size: 10px;
+  letter-spacing: 6px;
+  margin-top: 20px;
+}
+
+@media (max-width: 768px) {
+  .authDecor { display: none; }
+  .authCard {
+    padding: 32px 24px;
+    max-width: 100%;
+    min-height: 100vh;
+    justify-content: center;
+  }
+}

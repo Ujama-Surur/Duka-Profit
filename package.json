@@ -1,0 +1,47 @@
+{
+  "name": "duka-profit",
+  "version": "1.0.0",
+  "description": "Profit tracking app for small businesses in East Africa",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && npm start",
+    "build": "cd frontend && npm run build",
+    "preview": "cd frontend && npm run preview",
+    "electron": "electron .",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0",
+    "electron": "^42.0.1",
+    "electron-builder": "^26.8.1"
+  },
+  "build": {
+    "appId": "com.duka.profit",
+    "productName": "Duka Profit",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "electron/**/*",
+      "frontend/dist/**/*",
+      "backend/**/*"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  },
+  "dependencies": {
+    "dotenv": "^17.4.1",
+    "mongodb": "^7.1.1",
+    "mongoose": "^9.4.1",
+    "node-machine-id": "^1.1.12"
+  }
+}

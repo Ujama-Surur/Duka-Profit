@@ -1,0 +1,560 @@
+/* Landing Page Styles */
+.landingContainer {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+/* Header */
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.navBrand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.logo {
+  font-size: 2rem;
+}
+
+.brandName {
+  color: white;
+}
+
+.navActions {
+  display: flex;
+  gap: 1rem;
+}
+
+/* Buttons */
+.btnPrimary {
+  background: white;
+  color: #667eea;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  border: none;
+  cursor: pointer;
+}
+
+.btnPrimary:hover {
+  background: #f8f9fa;
+  transform: translateY(-2px);
+}
+
+.btnSecondary {
+  background: transparent;
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 600;
+  border: 2px solid white;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.btnSecondary:hover {
+  background: white;
+  color: #667eea;
+}
+
+.btnPrimaryLarge {
+  background: white;
+  color: #667eea;
+  padding: 1rem 2rem;
+  border-radius: 12px;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 1.125rem;
+  transition: all 0.3s ease;
+  display: inline-block;
+  border: none;
+  cursor: pointer;
+}
+
+.btnPrimaryLarge:hover {
+  background: #f8f9fa;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.btnSecondaryLarge {
+  background: transparent;
+  color: white;
+  padding: 1rem 2rem;
+  border-radius: 12px;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 1.125rem;
+  border: 2px solid white;
+  transition: all 0.3s ease;
+  display: inline-block;
+  cursor: pointer;
+}
+
+.btnSecondaryLarge:hover {
+  background: white;
+  color: #667eea;
+  transform: translateY(-2px);
+}
+
+/* Hero Section */
+.hero {
+  padding: 8rem 2rem 4rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4rem;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+  min-height: 100vh;
+}
+
+.heroContent {
+  animation: fadeInUp 1s ease-out;
+}
+
+.heroTitle {
+  font-size: 3.5rem;
+  font-weight: 800;
+  line-height: 1.2;
+  margin-bottom: 1.5rem;
+  color: white;
+}
+
+.heroSubtitle {
+  font-size: 1.25rem;
+  line-height: 1.6;
+  margin-bottom: 2rem;
+  color: rgba(255, 255, 255, 0.9);
+  max-width: 500px;
+}
+
+.heroActions {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.heroImage {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  animation: fadeInRight 1s ease-out;
+}
+
+.dashboardPreview {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  min-width: 400px;
+  color: #333;
+}
+
+.previewHeader {
+  margin-bottom: 1rem;
+}
+
+.previewStats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.stat {
+  text-align: center;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.statNumber {
+  display: block;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #667eea;
+}
+
+.statLabel {
+  font-size: 0.875rem;
+  color: #666;
+}
+
+/* Features Section */
+.features {
+  background: white;
+  color: #333;
+  padding: 6rem 2rem;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.sectionTitle {
+  font-size: 2.5rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.sectionSubtitle {
+  font-size: 1.25rem;
+  text-align: center;
+  margin-bottom: 3rem;
+  color: #666;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.featuresGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 2rem;
+}
+
+.featureCard {
+  text-align: center;
+  padding: 2rem;
+  border-radius: 16px;
+  background: #f8f9fa;
+  transition: all 0.3s ease;
+}
+
+.featureCard:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+.featureIcon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.featureTitle {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.featureDescription {
+  color: #666;
+  line-height: 1.6;
+}
+
+/* Testimonials Section */
+.testimonials {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 6rem 2rem;
+}
+
+.testimonialsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+}
+
+.testimonialCard {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  padding: 2rem;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.testimonialRating {
+  margin-bottom: 1rem;
+}
+
+.star {
+  color: #ffd700;
+  font-size: 1.25rem;
+}
+
+.testimonialContent {
+  font-size: 1.125rem;
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+  font-style: italic;
+}
+
+.testimonialAuthor {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.authorInfo {
+  flex: 1;
+}
+
+.authorName {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.authorBusiness {
+  font-size: 0.875rem;
+  opacity: 0.8;
+}
+
+/* CTA Section */
+.cta {
+  background: white;
+  color: #333;
+  padding: 6rem 2rem;
+  text-align: center;
+}
+
+.ctaTitle {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.ctaSubtitle {
+  font-size: 1.25rem;
+  margin-bottom: 2rem;
+  color: #666;
+}
+
+.ctaActions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* Footer */
+.footer {
+  background: #1a1a1a;
+  color: white;
+  padding: 3rem 2rem 1rem;
+}
+
+.footerContent {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+.footerBrand {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.footerDescription {
+  color: #999;
+  line-height: 1.6;
+}
+
+.footerLinks {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+}
+
+.linkGroup h4 {
+  margin-bottom: 1rem;
+  color: white;
+}
+
+.linkGroup a {
+  display: block;
+  color: #999;
+  text-decoration: none;
+  margin-bottom: 0.5rem;
+  transition: color 0.3s ease;
+}
+
+.linkGroup a:hover {
+  color: white;
+}
+
+.footerBottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 2rem;
+  border-top: 1px solid #333;
+  color: #999;
+}
+
+.socialLinks {
+  display: flex;
+  gap: 1rem;
+}
+
+.socialLink {
+  font-size: 1.25rem;
+  color: #999;
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.socialLink:hover {
+  color: white;
+}
+
+/* Animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .nav {
+    padding: 1rem;
+  }
+
+  .navActions {
+    gap: 0.5rem;
+  }
+
+  .btnPrimary,
+  .btnSecondary {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+  }
+
+  .hero {
+    grid-template-columns: 1fr;
+    padding: 6rem 1rem 2rem;
+    text-align: center;
+  }
+
+  .heroTitle {
+    font-size: 2.5rem;
+  }
+
+  .heroSubtitle {
+    font-size: 1.125rem;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .heroActions {
+    justify-content: center;
+  }
+
+  .dashboardPreview {
+    min-width: 300px;
+    padding: 1.5rem;
+  }
+
+  .features,
+  .testimonials,
+  .cta {
+    padding: 4rem 1rem;
+  }
+
+  .sectionTitle {
+    font-size: 2rem;
+  }
+
+  .sectionSubtitle {
+    font-size: 1.125rem;
+  }
+
+  .featuresGrid,
+  .testimonialsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .footerContent {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+
+  .footerLinks {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+
+  .footerBottom {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .heroTitle {
+    font-size: 2rem;
+  }
+
+  .heroSubtitle {
+    font-size: 1rem;
+  }
+
+  .btnPrimaryLarge,
+  .btnSecondaryLarge {
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+  }
+
+  .dashboardPreview {
+    min-width: 250px;
+    padding: 1rem;
+  }
+
+  .statNumber {
+    font-size: 1.5rem;
+  }
+
+  .featureCard,
+  .testimonialCard {
+    padding: 1.5rem;
+  }
+}

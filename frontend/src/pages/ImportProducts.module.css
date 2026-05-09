@@ -1,0 +1,24 @@
+.uploadArea {
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  padding: 40px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: var(--bg);
+}
+
+.uploadArea:hover {
+  border-color: var(--green-primary);
+  background: #F0FDF4;
+}
+
+.uploadArea.dragging {
+  border-color: var(--green-primary);
+  background: #F0FDF4;
+  transform: scale(1.02);
+}
+
+.uploadArea:active {
+  transform: scale(0.98);
+}

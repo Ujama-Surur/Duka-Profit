@@ -1,0 +1,359 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.greeting {
+  font-size: 15px;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.title {
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.date {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.headerBadge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: var(--green-primary);
+  color: white;
+  border-radius: var(--radius-full);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  box-shadow: var(--shadow-green);
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.bestProduct {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, var(--yellow-light), #FEF3C7);
+  border: 1px solid #FDE68A;
+  border-radius: var(--radius-lg);
+}
+
+.bestProductIcon {
+  font-size: 28px;
+  flex-shrink: 0;
+}
+
+.bestProductLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--yellow-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.bestProductName {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  margin-top: 2px;
+}
+
+.bestProductStats {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.chartCard {
+  padding: 24px !important;
+}
+
+.chartContainer {
+  width: 100%;
+  min-height: 220px;
+  position: relative;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sectionTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.salesList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.saleItem {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 8px;
+  border-radius: var(--radius-md);
+  transition: background var(--transition);
+}
+
+.saleItem:hover { background: var(--bg); }
+
+.saleIcon {
+  width: 40px;
+  height: 40px;
+  background: var(--bg);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+
+.saleInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.saleName {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.saleMeta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.saleProfit {
+  flex-shrink: 0;
+}
+
+/* Tablet responsiveness */
+@media (max-width: 1024px) {
+  .statsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .bestProduct {
+    flex-direction: column;
+    text-align: center;
+    gap: 12px;
+  }
+  
+  .bestProductStats {
+    margin-left: 0;
+  }
+}
+
+/* Large mobile responsiveness */
+@media (max-width: 768px) {
+  .page {
+    gap: 20px;
+    padding: 0 16px;
+  }
+  
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .title {
+    font-size: 26px;
+  }
+  
+  .headerBadge {
+    align-self: flex-start;
+  }
+  
+  .statsGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+  
+  .bestProduct {
+    padding: 14px 16px;
+  }
+  
+  .bestProductName {
+    font-size: 16px;
+  }
+  
+  .chartCard {
+    padding: 20px !important;
+  }
+  
+  .sectionHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .saleItem {
+    padding: 14px 12px;
+    gap: 12px;
+  }
+  
+  .saleIcon {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+  }
+  
+  .saleName {
+    font-size: 13px;
+  }
+  
+  .saleMeta {
+    font-size: 11px;
+  }
+}
+
+/* Small mobile responsiveness */
+@media (max-width: 500px) {
+  .page {
+    gap: 16px;
+    padding: 0 12px;
+  }
+  
+  .title {
+    font-size: 22px;
+  }
+  
+  .greeting {
+    font-size: 14px;
+  }
+  
+  .date {
+    font-size: 13px;
+  }
+  
+  .headerBadge {
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+  
+  .statsGrid {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  
+  .bestProduct {
+    padding: 12px 14px;
+  }
+  
+  .bestProductName {
+    font-size: 15px;
+  }
+  
+  .chartCard {
+    padding: 16px !important;
+  }
+  
+  .sectionTitle {
+    font-size: 16px;
+  }
+  
+  .saleItem {
+    padding: 12px 8px;
+    gap: 10px;
+  }
+  
+  .saleIcon {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+  }
+  
+  .saleName {
+    font-size: 12px;
+  }
+  
+  .saleMeta {
+    font-size: 10px;
+  }
+  
+  .profit-pill {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+}
+
+/* Extra small mobile */
+@media (max-width: 380px) {
+  .statsGrid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  
+  .headerBadge {
+    display: none;
+  }
+  
+  .bestProduct {
+    padding: 10px 12px;
+  }
+  
+  .chartCard {
+    padding: 12px !important;
+  }
+  
+  .saleItem {
+    padding: 10px 6px;
+    gap: 8px;
+  }
+  
+  .saleIcon {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+  
+  .saleName {
+    font-size: 11px;
+  }
+  
+  .saleMeta {
+    font-size: 9px;
+  }
+}

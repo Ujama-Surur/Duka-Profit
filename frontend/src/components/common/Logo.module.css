@@ -1,0 +1,45 @@
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logoIcon {
+  line-height: 1;
+}
+
+.logoText {
+  font-family: var(--font-display);
+  font-weight: 800;
+  color: var(--green-primary);
+}
+
+.logoImage {
+  width: auto;
+  object-fit: contain;
+  display: block;
+}
+
+/* Size Presets */
+
+.small .logoImage {
+  height: 40px;
+}
+.small .logoText {
+  font-size: 16px;
+}
+
+.medium .logoImage {
+  height: 80px;
+}
+.medium .logoText {
+  font-size: 20px;
+}
+
+.large .logoImage {
+  height: 160px;
+}
+.large .logoText {
+  font-size: 24px;
+}
+

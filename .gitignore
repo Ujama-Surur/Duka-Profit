@@ -1,0 +1,11 @@
+node_modules/
+dist/
+dist-electron/
+.env
+backend/.env
+frontend/.env
+*.log
+.DS_Store
+frontend/dist/
+backend/node_modules/
+frontend/node_modules/
