@@ -5,6 +5,7 @@ import { format, subDays, startOfWeek, startOfMonth } from 'date-fns';
 import toast from 'react-hot-toast';
 import api, { formatCurrency, formatDate, offlineData } from '../utils/api';
 import styles from './Reports.module.css';
+import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, BarChart3, FileText, Download, Trophy, CreditCard, Banknote, Smartphone, Package, Ruler, ClipboardList, FileSpreadsheet } from 'lucide-react';
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload?.length) {
@@ -121,7 +122,7 @@ export default function Reports() {
       }
 
       doc.save(`duka-report-${period}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
-      toast.success('PDF exported! 📄');
+      toast.success('PDF exported!');
     } catch (err) {
       console.error(err);
       toast.error('Export failed');
@@ -154,7 +155,7 @@ export default function Reports() {
     a.download = `duka-report-${period}-${format(new Date(), 'yyyy-MM-dd')}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success('CSV exported! 📊');
+    toast.success('CSV exported!');
   };
 
   const PERIODS = [
@@ -171,15 +172,15 @@ export default function Reports() {
       <div className="page-header">
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:12}}>
           <div>
-            <h1 className="page-title">📈 {t('reports')}</h1>
+            <h1 className="page-title" style={{display:'flex',alignItems:'center',gap:8}}><TrendingUp size={24} /> {t('reports')}</h1>
             <p className="page-subtitle">Analyze your business performance</p>
           </div>
           <div style={{display:'flex',gap:10}}>
             <button className="btn btn-outline btn-sm" onClick={exportCSV} disabled={exporting}>
-              📊 {t('exportCSV')}
+              <FileSpreadsheet size={16} style={{marginRight:6}} /> {t('exportCSV')}
             </button>
             <button className="btn btn-primary btn-sm" onClick={exportPDF} disabled={exporting}>
-              {exporting ? '...' : `📄 ${t('exportPDF')}`}
+              {exporting ? '...' : <><FileText size={16} style={{marginRight:6}} /> {t('exportPDF')}</>}
             </button>
           </div>
         </div>
@@ -206,11 +207,11 @@ export default function Reports() {
         <>
           {/* Summary Cards */}
           <div className={styles.summaryGrid}>
-            <SummaryCard icon="💰" label={t('totalRevenue')} value={formatCurrency(data?.summary?.totalRevenue || 0)} color="blue" />
-            <SummaryCard icon="📉" label="Total Cost" value={formatCurrency(data?.summary?.totalCost || 0)} color="red" />
-            <SummaryCard icon="📈" label={t('totalProfit')} value={formatCurrency(data?.summary?.totalProfit || 0)} color="green" highlight />
-            <SummaryCard icon="🛒" label={t('salesCount')} value={data?.summary?.salesCount || 0} suffix="sales" color="yellow" />
-            <SummaryCard icon="📊" label={t('profitMargin')} value={`${data?.summary?.profitMargin || 0}%`} color="green" />
+            <SummaryCard icon={<DollarSign size={22} />} label={t('totalRevenue')} value={formatCurrency(data?.summary?.totalRevenue || 0)} color="blue" />
+            <SummaryCard icon={<TrendingDown size={22} />} label="Total Cost" value={formatCurrency(data?.summary?.totalCost || 0)} color="red" />
+            <SummaryCard icon={<TrendingUp size={22} />} label={t('totalProfit')} value={formatCurrency(data?.summary?.totalProfit || 0)} color="green" highlight />
+            <SummaryCard icon={<ShoppingCart size={22} />} label={t('salesCount')} value={data?.summary?.salesCount || 0} suffix="sales" color="yellow" />
+            <SummaryCard icon={<BarChart3 size={22} />} label={t('profitMargin')} value={`${data?.summary?.profitMargin || 0}%`} color="green" />
           </div>
 
           {/* Chart */}
@@ -234,11 +235,11 @@ export default function Reports() {
           {/* Top Products */}
           {data?.topProducts?.length > 0 && (
             <div className="card">
-              <h2 style={{fontSize:18,fontWeight:700,marginBottom:20}}>🏆 Top Products</h2>
+              <h2 style={{fontSize:18,fontWeight:700,marginBottom:20,display:'flex',alignItems:'center',gap:8}}><Trophy size={20} /> Top Products</h2>
               <div className={styles.topProductsList}>
                 {data.topProducts.map((p, i) => (
                   <div key={i} className={styles.topProductItem}>
-                    <span className={styles.topProductRank}>{['🥇','🥈','🥉','4️⃣','5️⃣'][i] || `${i+1}.`}</span>
+                    <span className={styles.topProductRank}>{i+1}</span>
                     <div className={styles.topProductInfo}>
                       <p className={styles.topProductName}>{p.productName}</p>
                       <p className={styles.topProductMeta}>{p.totalSold} units sold</p>
@@ -250,10 +251,86 @@ export default function Reports() {
             </div>
           )}
 
+          {/* Payment Method Breakdown */}
+          {data?.paymentMethodBreakdown?.length > 0 && (
+            <div className="card">
+              <h2 style={{fontSize:18,fontWeight:700,marginBottom:20,display:'flex',alignItems:'center',gap:8}}><CreditCard size={20} /> Payment Methods</h2>
+              <div style={{display:'flex',flexDirection:'column',gap:12}}>
+                {data.paymentMethodBreakdown.map((pm, i) => (
+                  <div key={i} style={{
+                    display:'flex',
+                    alignItems:'center',
+                    justifyContent:'space-between',
+                    padding:'12px 16px',
+                    background:'var(--bg-muted)',
+                    borderRadius:'var(--radius-md)'
+                  }}>
+                    <div style={{display:'flex',alignItems:'center',gap:12}}>
+                      <span style={{fontSize:20}}>
+                        {pm.method === 'cash' ? <Banknote size={20} /> : pm.method === 'card' ? <CreditCard size={20} /> : <Smartphone size={20} />}
+                      </span>
+                      <div>
+                        <p style={{fontFamily:'var(--font-display)',fontWeight:600,fontSize:14}}>
+                          {pm.method.charAt(0).toUpperCase() + pm.method.slice(1)}
+                        </p>
+                        <p style={{fontSize:12,color:'var(--text-muted)'}}>{pm.count} transaction{pm.count !== 1 ? 's' : ''}</p>
+                      </div>
+                    </div>
+                    <div style={{textAlign:'right'}}>
+                      <p style={{fontFamily:'var(--font-display)',fontWeight:700,fontSize:16}}>
+                        {formatCurrency(pm.revenue)}
+                      </p>
+                      <p style={{fontSize:12,color:'var(--green-primary)',fontWeight:600}}>
+                        +{formatCurrency(pm.profit)} profit
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Unit Type Breakdown */}
+          {data?.unitTypeBreakdown?.length > 0 && (
+            <div className="card">
+              <h2 style={{fontSize:18,fontWeight:700,marginBottom:20,display:'flex',alignItems:'center',gap:8}}><Package size={20} /> Unit Types</h2>
+              <div style={{display:'flex',flexDirection:'column',gap:12}}>
+                {data.unitTypeBreakdown.map((ut, i) => (
+                  <div key={i} style={{
+                    display:'flex',
+                    alignItems:'center',
+                    justifyContent:'space-between',
+                    padding:'12px 16px',
+                    background:'var(--bg-muted)',
+                    borderRadius:'var(--radius-md)'
+                  }}>
+                    <div style={{display:'flex',alignItems:'center',gap:12}}>
+                      <span style={{fontSize:20}}><Ruler size={20} /></span>
+                      <div>
+                        <p style={{fontFamily:'var(--font-display)',fontWeight:600,fontSize:14}}>
+                          {ut.unitType.charAt(0).toUpperCase() + ut.unitType.slice(1)}
+                        </p>
+                        <p style={{fontSize:12,color:'var(--text-muted)'}}>{ut.count} sale{ut.count !== 1 ? 's' : ''}</p>
+                      </div>
+                    </div>
+                    <div style={{textAlign:'right'}}>
+                      <p style={{fontFamily:'var(--font-display)',fontWeight:700,fontSize:16}}>
+                        {formatCurrency(ut.revenue)}
+                      </p>
+                      <p style={{fontSize:12,color:'var(--green-primary)',fontWeight:600}}>
+                        +{formatCurrency(ut.profit)} profit
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Sales Table */}
           <div className="card">
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
-              <h2 style={{fontSize:18,fontWeight:700}}>📋 Sales History</h2>
+              <h2 style={{fontSize:18,fontWeight:700,display:'flex',alignItems:'center',gap:8}}><ClipboardList size={20} /> Sales History</h2>
               <span className="badge badge-gray">{data?.sales?.length || 0} records</span>
             </div>
             {data?.sales?.length > 0 ? (
@@ -283,7 +360,7 @@ export default function Reports() {
               </div>
             ) : (
               <div className="empty-state" style={{padding:'40px'}}>
-                <div className="empty-icon">📊</div>
+                <div className="empty-icon"><BarChart3 size={48} /></div>
                 <p style={{color:'var(--text-muted)'}}>No sales data for this period</p>
               </div>
             )}
@@ -312,7 +389,7 @@ function SummaryCard({ icon, label, value, color, highlight, suffix }) {
       transition: 'all var(--transition)',
     }}>
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
-        <span style={{fontSize:22}}>{icon}</span>
+        <span style={{fontSize:22,color:highlight ? c.text : 'var(--text-muted)'}}>{icon}</span>
         <p style={{fontSize:13,color:'var(--text-muted)',fontWeight:600}}>{label}</p>
       </div>
       <p style={{fontFamily:'var(--font-display)',fontWeight:800,fontSize:22,color: highlight ? c.text : 'var(--text)'}}>

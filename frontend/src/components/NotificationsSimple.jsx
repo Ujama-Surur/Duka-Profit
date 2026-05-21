@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../utils/api';
+import { Bell, AlertTriangle, Zap, Package, Clock, Ban, Megaphone, PartyPopper } from 'lucide-react';
 
 const NotificationsSimple = () => {
   const { t } = useTranslation();
@@ -32,12 +33,12 @@ const NotificationsSimple = () => {
           if (alert.severity === 'critical') {
             toast.error(alert.message, {
               duration: 5000,
-              icon: '⚠️'
+              icon: <AlertTriangle size={18} color="#EF4444" />
             });
           } else if (alert.severity === 'warning') {
             toast(alert.message, {
               duration: 4000,
-              icon: '⚡'
+              icon: <Zap size={18} color="#FACC15" />
             });
           }
         });
@@ -52,10 +53,10 @@ const NotificationsSimple = () => {
 
   const getSeverityIcon = (type) => {
     switch (type) {
-      case 'low_stock': return '📦';
-      case 'expiring': return '⏰';
-      case 'expired': return '🚫';
-      default: return '📢';
+      case 'low_stock': return <Package size={18} />;
+      case 'expiring': return <Clock size={18} />;
+      case 'expired': return <Ban size={18} style={{ color: 'var(--red)' }} />;
+      default: return <Megaphone size={18} />;
     }
   };
 
@@ -89,7 +90,7 @@ const NotificationsSimple = () => {
           onClick={handleBellClick}
           title="Notifications"
         >
-          <span style={{ fontSize: '20px' }}>🔔</span>
+          <span style={{ display: 'flex', alignItems: 'center', color: 'var(--text-muted)' }}><Bell size={20} /></span>
           {alerts.length > 0 && (
             <span style={{
               position: 'absolute',
@@ -180,7 +181,7 @@ const NotificationsSimple = () => {
                   textAlign: 'center',
                   color: 'var(--text-muted)'
                 }}>
-                  <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎉</div>
+                  <div style={{ color: 'var(--green-primary)', marginBottom: '16px', display: 'flex', justifyContent: 'center' }}><PartyPopper size={48} /></div>
                   <p style={{ margin: 0, fontSize: '14px' }}>No notifications</p>
                 </div>
               ) : (

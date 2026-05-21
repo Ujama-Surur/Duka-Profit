@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { Sparkles, Package, DollarSign, Rocket } from 'lucide-react';
 
 const Onboarding = ({ onComplete, user }) => {
   const { t } = useTranslation();
@@ -14,28 +15,28 @@ const Onboarding = ({ onComplete, user }) => {
       id: 'welcome',
       title: t('welcomeToDukaProfit'),
       description: t('onboardingWelcomeDesc'),
-      icon: '🎉',
+      icon: <Sparkles size={64} color="var(--green-primary)" />,
       action: t('getStarted')
     },
     {
       id: 'addProduct',
       title: t('addYourFirstProduct'),
       description: t('onboardingProductDesc'),
-      icon: '📦',
+      icon: <Package size={64} color="var(--green-primary)" />,
       action: t('addProduct')
     },
     {
       id: 'firstSale',
       title: t('recordFirstSale'),
       description: t('onboardingSaleDesc'),
-      icon: '💰',
+      icon: <DollarSign size={64} color="var(--green-primary)" />,
       action: t('recordSale')
     },
     {
       id: 'explore',
       title: t('exploreFeatures'),
       description: t('onboardingExploreDesc'),
-      icon: '🚀',
+      icon: <Rocket size={64} color="var(--green-primary)" />,
       action: t('exploreDashboard')
     }
   ];
@@ -179,8 +180,9 @@ const Onboarding = ({ onComplete, user }) => {
         <div style={{ textAlign: 'center' }}>
           <div 
             style={{
-              fontSize: '64px',
               marginBottom: '24px',
+              display: 'flex',
+              justifyContent: 'center',
               lineHeight: 1
             }}
           >

@@ -6,15 +6,30 @@ import { syncPendingOperations } from '../../utils/api';
 import Logo from '../common/Logo';
 import NotificationsSimple from '../NotificationsSimple';
 import styles from './Layout.module.css';
+import { 
+  TrendingUp, 
+  ShoppingCart, 
+  Package, 
+  Download, 
+  BarChart2, 
+  Lock, 
+  Settings,
+  LogOut,
+  Menu,
+  ShoppingCartCheckout,
+  ArrowDownToLine
+} from 'lucide-react';
 
 const NAV_ITEMS = [
-  { path: '/dashboard', icon: '📈', key: 'dashboard' },
-  { path: '/sales', icon: '🛒', key: 'sales' },
-  { path: '/products', icon: '📦', key: 'products' },
-  { path: '/import-products', icon: '📥', key: 'importProducts' },
-  { path: '/reports', icon: '📊', key: 'reports' },
-  { path: '/admin', icon: '🔐', key: 'admin', adminOnly: true },
-  { path: '/settings', icon: '⚙️', key: 'settings' },
+  { path: '/dashboard', icon: <TrendingUp size={20} />, key: 'dashboard' },
+  { path: '/sales', icon: <ShoppingCart size={20} />, key: 'sales' },
+  { path: '/checkout', icon: <ShoppingCartCheckout size={20} />, key: 'checkout', premiumOnly: true },
+  { path: '/stock-in', icon: <ArrowDownToLine size={20} />, key: 'stockIn', premiumOnly: true },
+  { path: '/products', icon: <Package size={20} />, key: 'products' },
+  { path: '/import-products', icon: <Download size={20} />, key: 'importProducts' },
+  { path: '/reports', icon: <BarChart2 size={20} />, key: 'reports' },
+  { path: '/admin', icon: <Lock size={20} />, key: 'admin', adminOnly: true },
+  { path: '/settings', icon: <Settings size={20} />, key: 'settings' },
 ];
 
 export default function Layout() {
@@ -27,6 +42,7 @@ export default function Layout() {
       name: user?.name,
       email: user?.email,
       role: user?.role,
+      licenseStatus: user?.licenseStatus,
     });
   }, [user]);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -78,7 +94,11 @@ export default function Layout() {
 
         <nav className={styles.nav}>
           {NAV_ITEMS
-            .filter(item => !item.adminOnly || user?.role === 'admin')
+            .filter(item => {
+              if (item.adminOnly && user?.role !== 'admin') return false;
+              if (item.premiumOnly && user?.role !== 'admin' && user?.licenseStatus !== 'active') return false;
+              return true;
+            })
             .map(item => (
               <NavLink
                 key={item.path}
@@ -103,7 +123,7 @@ export default function Layout() {
             <span>{isOnline ? t('online') : t('offline')}</span>
           </div>
           <button className={styles.logoutBtn} onClick={handleLogout}>
-            <span>🚪</span>
+            <span><LogOut size={16} /></span>
             <span>{t('logout')}</span>
           </button>
         </div>
@@ -122,7 +142,7 @@ export default function Layout() {
             className={styles.menuBtn}
             onClick={() => setSidebarOpen(true)}
           >
-            ☰
+            <Menu size={24} />
           </button>
           <Logo size="small" className={styles.topBarLogo} />
           <div className={styles.topBarRight}>
@@ -140,18 +160,25 @@ export default function Layout() {
 
       {/* Mobile bottom navigation */}
       <nav className={styles.bottomNav}>
-        {NAV_ITEMS.slice(0, 5).map(item => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            className={({ isActive }) =>
-              `${styles.bottomNavItem} ${isActive ? styles.bottomNavItemActive : ''}`
-            }
-          >
-            <span className={styles.bottomNavIcon}>{item.icon}</span>
-            <span className={styles.bottomNavLabel}>{t(item.key)}</span>
-          </NavLink>
-        ))}
+        {NAV_ITEMS
+          .filter(item => {
+            if (item.adminOnly && user?.role !== 'admin') return false;
+            if (item.premiumOnly && user?.role !== 'admin' && user?.licenseStatus !== 'active') return false;
+            return true;
+          })
+          .slice(0, 5)
+          .map(item => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              className={({ isActive }) =>
+                `${styles.bottomNavItem} ${isActive ? styles.bottomNavItemActive : ''}`
+              }
+            >
+              <span className={styles.bottomNavIcon}>{item.icon}</span>
+              <span className={styles.bottomNavLabel}>{t(item.key)}</span>
+            </NavLink>
+          ))}
       </nav>
     </div>
   );

@@ -11,11 +11,17 @@ export default defineConfig(({ mode }) => {
     base: './',
     plugins: [react()],
     server: {
+      host: true,
       port: 5173,
       proxy: {
         '/api': {
           target: apiProxyTarget,
           changeOrigin: true,
+        },
+        '/socket.io': {
+          target: apiProxyTarget,
+          changeOrigin: true,
+          ws: true,
         },
       },
     },

@@ -9,6 +9,7 @@ import toast from 'react-hot-toast';
 import EmptyState from '../components/EmptyState';
 import Onboarding from '../components/Onboarding';
 import styles from './Dashboard.module.css';
+import { DollarSign, Calendar, CalendarDays, ShoppingCart, ShoppingBag, TrendingUp, WifiOff, Sun, Cloud, Moon, Utensils, Smartphone, Shirt, Package } from 'lucide-react';
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
@@ -70,7 +71,7 @@ export default function Dashboard() {
         setStats(cached.stats);
         setChartData(cached.chartData);
         setRecentSales(cached.recentSales);
-        toast('Using offline data', { icon: '💾' });
+        toast('Using offline data', { icon: <WifiOff size={16} /> });
       } else {
         toast.error('Failed to load dashboard');
       }
@@ -81,9 +82,9 @@ export default function Dashboard() {
 
   const getGreeting = () => {
     const h = new Date().getHours();
-    if (h < 12) return `Good Morning 🌅`;
-    if (h < 17) return `Good Afternoon 🌤️`;
-    return `Good Evening 🌙`;
+    if (h < 12) return <>Good Morning <Sun size={20} /></>;
+    if (h < 17) return <>Good Afternoon <Cloud size={20} /></>;
+    return <>Good Evening <Moon size={20} /></>;
   };
 
   if (loading) {
@@ -131,35 +132,31 @@ export default function Dashboard() {
       {/* Stats Grid */}
       <div className={styles.statsGrid}>
         <StatCard
-          icon="💰"
+          icon={<DollarSign size={24} />}
           label={t('todayProfit')}
           value={formatCurrency(stats?.todayProfit || 0)}
           change={stats?.todayChange}
-          color="green"
           delay={1}
         />
         <StatCard
-          icon="📅"
+          icon={<Calendar size={24} />}
           label={t('weeklyProfit')}
           value={formatCurrency(stats?.weeklyProfit || 0)}
           change={stats?.weeklyChange}
-          color="green"
           delay={2}
         />
         <StatCard
-          icon="📆"
+          icon={<CalendarDays size={24} />}
           label={t('monthlyProfit')}
           value={formatCurrency(stats?.monthlyProfit || 0)}
           change={stats?.monthlyChange}
-          color="yellow"
           delay={3}
         />
         <StatCard
-          icon="🛒"
+          icon={<ShoppingCart size={24} />}
           label={t('totalSales')}
           value={stats?.todaySalesCount || 0}
           suffix="sales today"
-          color="blue"
           delay={4}
         />
       </div>
@@ -167,7 +164,7 @@ export default function Dashboard() {
       {/* Best Selling */}
       {stats?.bestProduct && (
         <div className={`${styles.bestProduct} animate-fade-in animate-delay-4`}>
-          <span className={styles.headerBadge}>🛍️</span>
+          <span className={styles.headerBadge}><ShoppingBag size={20} /></span>
           <div>
             <p className={styles.bestProductLabel}>{t('bestSelling')}</p>
             <p className={styles.bestProductName}>{stats.bestProduct.name}</p>
@@ -216,7 +213,7 @@ export default function Dashboard() {
           </div>
         ) : (
           <EmptyState
-            icon="📈"
+            icon={<TrendingUp size={48} />}
             title={t('noSalesData')}
             description={t('noSalesDataDesc')}
             action={t('recordFirstSale')}
@@ -236,9 +233,9 @@ export default function Dashboard() {
             {recentSales.map((sale, i) => (
               <div key={i} className={styles.saleItem}>
                 <div className={styles.saleIcon}>
-                  {sale.product?.category === 'food' ? '🍽️' :
-                   sale.product?.category === 'electronics' ? '📱' :
-                   sale.product?.category === 'clothing' ? '👕' : '📦'}
+                  {sale.product?.category === 'food' ? <Utensils size={20} /> :
+                   sale.product?.category === 'electronics' ? <Smartphone size={20} /> :
+                   sale.product?.category === 'clothing' ? <Shirt size={20} /> : <Package size={20} />}
                 </div>
                 <div className={styles.saleInfo}>
                   <p className={styles.saleName}>{sale.product?.productName || 'Unknown'}</p>
@@ -252,7 +249,7 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="empty-state" style={{padding:'32px'}}>
-            <div className="empty-icon" style={{width:56,height:56,fontSize:24}}>🛒</div>
+            <div className="empty-icon" style={{width:56,height:56,fontSize:24}}><ShoppingCart size={32} /></div>
             <p style={{color:'var(--text-muted)',fontSize:14}}>{t('noSalesToday')}</p>
           </div>
         )}

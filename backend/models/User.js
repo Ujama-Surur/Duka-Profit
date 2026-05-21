@@ -24,6 +24,7 @@ const userSchema = new mongoose.Schema({
     minlength: [6, 'Password must be at least 6 characters'],
     select: false, // Never return password in queries
   },
+  // Legacy license fields - keeping for backward compatibility
   licenseKey: {
     type: String,
     trim: true,
@@ -41,6 +42,31 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  // New subscription-related fields
+  isEmailVerified: {
+    type: Boolean,
+    default: false
+  },
+  emailVerificationToken: {
+    type: String,
+    select: false
+  },
+  emailVerificationExpires: {
+    type: Date,
+    select: false
+  },
+  lastLoginAt: {
+    type: Date,
+    default: Date.now
+  },
+  loginAttempts: {
+    type: Number,
+    default: 0
+  },
+  lockUntil: {
+    type: Date
+  },
+  // Keep existing fields for backward compatibility
   language: {
     type: String,
     enum: ['en', 'rw', 'sw', 'fr'],
@@ -57,6 +83,25 @@ const userSchema = new mongoose.Schema({
   },
   resetPasswordToken: String,
   resetPasswordExpire: Date,
+  // Receipt customization fields
+  storeName: {
+    type: String,
+    default: '',
+    trim: true,
+    maxlength: [100, 'Store name cannot exceed 100 characters'],
+  },
+  receiptHeader: {
+    type: String,
+    default: '',
+    trim: true,
+    maxlength: [500, 'Receipt header cannot exceed 500 characters'],
+  },
+  receiptFooter: {
+    type: String,
+    default: 'Thank you for your business!',
+    trim: true,
+    maxlength: [500, 'Receipt footer cannot exceed 500 characters'],
+  },
 }, {
   timestamps: true,
 });

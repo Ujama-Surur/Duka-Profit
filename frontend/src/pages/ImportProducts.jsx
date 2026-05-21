@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import Papa from 'papaparse';
 import api from '../utils/api';
 import styles from './ImportProducts.module.css';
+import { Upload, FileText } from 'lucide-react';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const REQUIRED_FIELDS = ['name', 'price'];
@@ -239,7 +240,7 @@ export default function ImportProducts() {
   return (
     <div className="page">
       <div className="page-header">
-        <h1 className="page-title">📦 {t('importProducts')}</h1>
+        <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Upload size={24} /> {t('importProducts')}</h1>
         <p className="page-subtitle">CSV import with validation, mapping and duplicate handling</p>
       </div>
 
@@ -267,7 +268,7 @@ export default function ImportProducts() {
             style={{ display: 'none' }}
             onChange={(e) => handleFileSelect(e.target.files?.[0])}
           />
-          <div style={{ fontSize: 42, marginBottom: 8 }}>📄</div>
+          <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'center' }}><FileText size={48} color="var(--text-muted)" /></div>
           <div style={{ fontWeight: 600 }}>{isDragging ? 'Drop CSV here' : 'Drag and drop CSV here'}</div>
           <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 6 }}>CSV only, max 5MB</div>
         </div>

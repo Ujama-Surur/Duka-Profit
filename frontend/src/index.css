@@ -50,7 +50,7 @@
 }
 
 html {
-  font-size: 16px;
+  font-size: 14.5px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -78,7 +78,7 @@ h1, h2, h3, h4, h5, h6 {
   padding: 12px 24px;
   border-radius: var(--radius-md);
   font-family: var(--font-display);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   border: none;
@@ -134,9 +134,9 @@ h1, h2, h3, h4, h5, h6 {
 }
 .btn-danger:hover { background: #DC2626; }
 
-.btn-lg { padding: 16px 32px; font-size: 17px; border-radius: var(--radius-lg); }
-.btn-sm { padding: 8px 16px; font-size: 13px; border-radius: var(--radius-sm); }
-.btn-xl { padding: 20px 40px; font-size: 18px; border-radius: var(--radius-lg); }
+.btn-lg { padding: 16px 32px; font-size: 16px; border-radius: var(--radius-lg); }
+.btn-sm { padding: 8px 16px; font-size: 12px; border-radius: var(--radius-sm); }
+.btn-xl { padding: 20px 40px; font-size: 17px; border-radius: var(--radius-lg); }
 .btn-full { width: 100%; }
 .btn-icon { padding: 10px; border-radius: var(--radius-md); }
 
@@ -166,7 +166,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .form-label {
   font-family: var(--font-display);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text);
 }
@@ -177,7 +177,7 @@ h1, h2, h3, h4, h5, h6 {
   border: 2px solid var(--border);
   border-radius: var(--radius-md);
   font-family: var(--font-body);
-  font-size: 16px;
+  font-size: 15px;
   color: var(--text);
   background: white;
   transition: all var(--transition);
@@ -195,18 +195,18 @@ h1, h2, h3, h4, h5, h6 {
 
 .form-input-lg {
   padding: 16px 20px;
-  font-size: 18px;
+  font-size: 17px;
   border-radius: var(--radius-lg);
 }
 
 .form-error {
-  font-size: 13px;
+  font-size: 12px;
   color: #EF4444;
   font-weight: 500;
 }
 
 .form-hint {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-muted);
 }
 
@@ -218,7 +218,7 @@ h1, h2, h3, h4, h5, h6 {
   padding: 4px 10px;
   border-radius: var(--radius-full);
   font-family: var(--font-display);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
 }
 
@@ -239,18 +239,18 @@ h1, h2, h3, h4, h5, h6 {
 .stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
 .stat-value {
   font-family: var(--font-display);
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 800;
   line-height: 1.2;
 }
 .stat-label {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-muted);
   font-weight: 500;
   margin-top: 4px;
 }
 .stat-change {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -270,7 +270,7 @@ h1, h2, h3, h4, h5, h6 {
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 thead {
@@ -282,7 +282,7 @@ thead th {
   text-align: left;
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--green-dark);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -376,13 +376,13 @@ tbody tr:hover { background: var(--bg); }
 }
 
 .page-title {
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 800;
   color: var(--text);
 }
 
 .page-subtitle {
-  font-size: 15px;
+  font-size: 14px;
   color: var(--text-muted);
   margin-top: 4px;
 }
@@ -410,7 +410,7 @@ tbody tr:hover { background: var(--bg); }
   color: var(--green-dark);
   border-radius: var(--radius-full);
   font-weight: 700;
-  font-size: 14px;
+  font-size: 13px;
   font-family: var(--font-display);
 }
 

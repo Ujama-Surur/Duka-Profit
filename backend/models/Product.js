@@ -38,6 +38,11 @@ const productSchema = new mongoose.Schema({
     enum: ['food', 'electronics', 'clothing', 'household', 'other'],
     default: 'other',
   },
+  unitType: {
+    type: String,
+    enum: ['pieces', 'box', 'kg', 'whole sack', 'liter', 'meter', 'pack'],
+    default: 'pieces',
+  },
   isActive: {
     type: Boolean,
     default: true,

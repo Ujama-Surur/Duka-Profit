@@ -53,10 +53,46 @@ router.get('/', [
       .sort({ createdAt: -1 })
       .lean();
 
+    // Normalize sales data - handle both single-item and checkout sales
+    const normalizedSales = [];
+    for (const sale of sales) {
+      if (sale.items && sale.items.length > 0) {
+        // Checkout sale with multiple items - expand into individual sale records
+        for (const item of sale.items) {
+          normalizedSales.push({
+            _id: sale._id,
+            createdAt: sale.createdAt,
+            productId: item.productId || null,
+            productName: item.productName,
+            category: item.category || 'other',
+            unitType: item.unitType || 'pieces',
+            costPrice: item.costPrice,
+            sellingPrice: item.unitPrice,
+            quantity: item.quantity,
+            revenue: item.subtotal,
+            profit: (item.unitPrice - item.costPrice) * item.quantity,
+            costPriceSnapshot: item.costPrice,
+            sellingPriceSnapshot: item.unitPrice,
+            paymentMethod: sale.paymentMethod,
+            isCheckout: true,
+          });
+        }
+      } else {
+        // Single-item sale
+        normalizedSales.push({
+          ...sale,
+          productName: sale.productId?.productName,
+          category: sale.productId?.category,
+          unitType: sale.productId?.unitType || 'pieces',
+          isCheckout: false,
+        });
+      }
+    }
+
     // Summary
-    const totalRevenue = sales.reduce((sum, s) => sum + s.revenue, 0);
-    const totalCost = sales.reduce((sum, s) => sum + (s.costPriceSnapshot * s.quantity), 0);
-    const totalProfit = sales.reduce((sum, s) => sum + s.profit, 0);
+    const totalRevenue = normalizedSales.reduce((sum, s) => sum + s.revenue, 0);
+    const totalCost = normalizedSales.reduce((sum, s) => sum + (s.costPriceSnapshot * s.quantity), 0);
+    const totalProfit = normalizedSales.reduce((sum, s) => sum + s.profit, 0);
     const profitMargin = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : 0;
 
     // Chart data based on period
@@ -65,7 +101,7 @@ router.get('/', [
     if (period === 'day') {
       // Hourly breakdown
       for (let h = 0; h < 24; h++) {
-        const hourSales = sales.filter(s => new Date(s.createdAt).getHours() === h);
+        const hourSales = normalizedSales.filter(s => new Date(s.createdAt).getHours() === h);
         chartData.push({
           label: `${h.toString().padStart(2, '0')}:00`,
           revenue: hourSales.reduce((sum, s) => sum + s.revenue, 0),
@@ -76,7 +112,7 @@ router.get('/', [
       // Daily for the week
       const days = eachDayOfInterval({ start: startDate, end: endDate });
       for (const day of days) {
-        const daySales = sales.filter(s =>
+        const daySales = normalizedSales.filter(s =>
           new Date(s.createdAt).toDateString() === day.toDateString()
         );
         chartData.push({
@@ -92,7 +128,7 @@ router.get('/', [
         weekStart.setDate((week - 1) * 7 + 1);
         const weekEnd = new Date(startDate);
         weekEnd.setDate(week * 7);
-        const weekSales = sales.filter(s => {
+        const weekSales = normalizedSales.filter(s => {
           const d = new Date(s.createdAt);
           return d >= weekStart && d <= weekEnd;
         });
@@ -108,7 +144,7 @@ router.get('/', [
       // Monthly
       const months = eachMonthOfInterval({ start: startDate, end: endDate });
       for (const month of months) {
-        const monthSales = sales.filter(s => {
+        const monthSales = normalizedSales.filter(s => {
           const d = new Date(s.createdAt);
           return d.getMonth() === month.getMonth() && d.getFullYear() === month.getFullYear();
         });
@@ -122,12 +158,12 @@ router.get('/', [
 
     // Top products
     const productMap = {};
-    for (const sale of sales) {
-      const pid = sale.productId?._id?.toString();
+    for (const sale of normalizedSales) {
+      const pid = sale.productId?._id?.toString() || sale.productName;
       if (!pid) continue;
       if (!productMap[pid]) {
         productMap[pid] = {
-          productName: sale.productId.productName,
+          productName: sale.productName,
           totalProfit: 0,
           totalRevenue: 0,
           totalSold: 0,
@@ -142,15 +178,70 @@ router.get('/', [
       .sort((a, b) => b.totalProfit - a.totalProfit)
       .slice(0, 5);
 
+    // Payment method breakdown
+    const paymentMethodMap = {};
+    for (const sale of normalizedSales) {
+      const method = sale.paymentMethod || 'cash';
+      if (!paymentMethodMap[method]) {
+        paymentMethodMap[method] = {
+          revenue: 0,
+          profit: 0,
+          count: 0,
+        };
+      }
+      paymentMethodMap[method].revenue += sale.revenue;
+      paymentMethodMap[method].profit += sale.profit;
+      paymentMethodMap[method].count += 1;
+    }
+
+    const paymentMethodBreakdown = Object.entries(paymentMethodMap).map(([method, data]) => ({
+      method,
+      revenue: data.revenue,
+      profit: data.profit,
+      count: data.count,
+    }));
+
+    // Unit type breakdown
+    const unitTypeMap = {};
+    for (const sale of normalizedSales) {
+      const unitType = sale.unitType || 'pieces';
+      if (!unitTypeMap[unitType]) {
+        unitTypeMap[unitType] = {
+          revenue: 0,
+          profit: 0,
+          count: 0,
+        };
+      }
+      unitTypeMap[unitType].revenue += sale.revenue;
+      unitTypeMap[unitType].profit += sale.profit;
+      unitTypeMap[unitType].count += 1;
+    }
+
+    const unitTypeBreakdown = Object.entries(unitTypeMap).map(([unitType, data]) => ({
+      unitType,
+      revenue: data.revenue,
+      profit: data.profit,
+      count: data.count,
+    }));
+
     // Map sales for frontend
-    const mappedSales = sales.map(s => ({ ...s, product: s.productId }));
+    const mappedSales = normalizedSales.map(s => ({
+      ...s,
+      product: {
+        _id: s.productId,
+        productName: s.productName,
+        category: s.category,
+        costPrice: s.costPrice,
+        sellingPrice: s.sellingPrice,
+      },
+    }));
 
     res.json({
       summary: {
         totalRevenue,
         totalCost,
         totalProfit,
-        salesCount: sales.length,
+        salesCount: normalizedSales.length,
         profitMargin,
         period,
         startDate,
@@ -158,6 +249,8 @@ router.get('/', [
       },
       chartData,
       topProducts,
+      paymentMethodBreakdown,
+      unitTypeBreakdown,
       sales: mappedSales,
     });
   } catch (err) {

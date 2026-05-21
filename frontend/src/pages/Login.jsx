@@ -37,7 +37,7 @@ export default function Login() {
     setLoading(true);
     try {
       await login(form.email, form.password);
-      toast.success('Welcome back! 🎉');
+      toast.success('Welcome back!');
       navigate('/dashboard');
     } catch (err) {
       console.error('Sign-in error details:', {
@@ -61,7 +61,7 @@ export default function Login() {
     setResetLoading(true);
     try {
       await api.post('/auth/forgot-password', { email: resetEmail });
-      toast.success('Password reset link sent to your email! 📬');
+      toast.success('Password reset link sent to your email!');
       setForgotPasswordMode(false);
       setResetEmail('');
     } catch (err) {
@@ -169,7 +169,7 @@ export default function Login() {
               {loading ? (
                 <><div className="spinner" style={{width:20,height:20,borderWidth:2}} />&nbsp;Signing in...</>
               ) : (
-                `🚀 ${t('signIn')}`
+                t('signIn')
               )}
             </button>
           </form>

@@ -1,27 +1,36 @@
-import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-import { Toaster } from 'react-hot-toast';
-import { Suspense, lazy, useEffect, useState } from 'react';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import './i18n/index.js';
-import './index.css';
+import { Suspense, lazy, useEffect, useState } from "react";
+import { Toaster } from "react-hot-toast";
+import { Coins } from "lucide-react";
+import {
+  HashRouter,
+  Navigate,
+  Route,
+  Routes,
+  useNavigate,
+} from "react-router-dom";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import "./i18n/index.js";
+import "./index.css";
 
-import Layout from './components/layout/LayoutEnhanced';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Landing from './pages/Landing';
-import ResetPassword from './pages/ResetPassword';
-import ActivationScreen from './components/ActivationScreen';
-import ErrorBoundary from './components/ErrorBoundary';
+import ActivationScreen from "./components/ActivationScreen";
+import ErrorBoundary from "./components/ErrorBoundary";
+import Layout from "./components/layout/LayoutEnhanced";
+import Landing from "./pages/Landing";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import ResetPassword from "./pages/ResetPassword";
+import UpgradePremiumScreen from "./components/UpgradePremiumScreen";
 
-const Dashboard = lazy(() => import('./pages/Dashboard'));
-const Products = lazy(() => import('./pages/Products'));
-const ImportProducts = lazy(() => import('./pages/ImportProducts'));
-const Sales = lazy(() => import('./pages/Sales'));
-const Reports = lazy(() => import('./pages/Reports'));
-const Settings = lazy(() => import('./pages/Settings'));
-const Admin = lazy(() => import('./pages/Admin'));
-
-console.log('🚀 App.jsx is mounting...');
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Products = lazy(() => import("./pages/Products"));
+const ImportProducts = lazy(() => import("./pages/ImportProducts"));
+const Sales = lazy(() => import("./pages/Sales"));
+const StockIn = lazy(() => import("./pages/StockIn"));
+const Checkout = lazy(() => import("./pages/Checkout"));
+const RemoteScanner = lazy(() => import("./pages/RemoteScanner"));
+const Reports = lazy(() => import("./pages/Reports"));
+const Settings = lazy(() => import("./pages/Settings"));
+const Admin = lazy(() => import("./pages/Admin"));
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -40,27 +49,45 @@ function PublicRoute({ children }) {
 function AdminRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return <LoadingScreen />;
-  if (!user || user.role !== 'admin') {
-    console.warn('⛔ Access denied: Admin role required');
+  if (!user || user.role !== "admin") {
     return <Navigate to="/dashboard" replace />;
+  }
+  return children;
+}
+
+function PremiumRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return <LoadingScreen />;
+  if (!user) return <Navigate to="/login" replace />;
+  // Allow if user is admin or has active license
+  if (user.role !== "admin" && user.licenseStatus !== "active") {
+    return <UpgradePremiumScreen />;
   }
   return children;
 }
 
 function LoadingScreen() {
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 16,
-      background: 'var(--bg)',
-    }}>
-      <div style={{fontSize: 56}}>💰</div>
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 16,
+        background: "var(--bg)",
+      }}
+    >
+      <div style={{ color: 'var(--green-primary)' }}><Coins size={56} /></div>
       <div className="spinner" />
-      <p style={{color: 'var(--text-muted)', fontFamily: 'var(--font-display)', fontWeight: 600}}>
+      <p
+        style={{
+          color: "var(--text-muted)",
+          fontFamily: "var(--font-display)",
+          fontWeight: 600,
+        }}
+      >
         Loading Duka Profit...
       </p>
     </div>
@@ -73,7 +100,7 @@ function ActivationRoute({ onActivated }) {
     <ActivationScreen
       onActivated={(payload) => {
         if (onActivated) onActivated(payload);
-        navigate('/login', { replace: true });
+        navigate("/login", { replace: true });
       }}
     />
   );
@@ -93,7 +120,7 @@ export default function App() {
           setRequiresActivation(Boolean(status?.requiresActivation));
         }
       } catch (error) {
-        console.error('Failed to read startup license status:', error);
+        // Failed to check license - continue anyway
       } finally {
         if (mounted) setLicenseLoading(false);
       }
@@ -108,11 +135,10 @@ export default function App() {
 
   if (requiresActivation) {
     return (
-      <ActivationScreen 
+      <ActivationScreen
         onActivated={() => {
-          console.log('Activation successful!');
           setRequiresActivation(false);
-        }} 
+        }}
       />
     );
   }
@@ -124,19 +150,64 @@ export default function App() {
           <Suspense fallback={<LoadingScreen />}>
             <Routes>
               <Route path="/landing" element={<Landing />} />
-              <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-              <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
-              <Route path="/reset-password/:token" element={<PublicRoute><ResetPassword /></PublicRoute>} />
+              <Route
+                path="/login"
+                element={
+                  <PublicRoute>
+                    <Login />
+                  </PublicRoute>
+                }
+              />
+              <Route
+                path="/register"
+                element={
+                  <PublicRoute>
+                    <Register />
+                  </PublicRoute>
+                }
+              />
+              <Route
+                path="/reset-password/:token"
+                element={
+                  <PublicRoute>
+                    <ResetPassword />
+                  </PublicRoute>
+                }
+              />
+              <Route path="/remote-scanner" element={<RemoteScanner />} />
 
               {/* Authenticated Layout */}
-              <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route
+                element={
+                  <ProtectedRoute>
+                    <Layout />
+                  </ProtectedRoute>
+                }
+              >
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/products" element={<Products />} />
                 <Route path="/import-products" element={<ImportProducts />} />
                 <Route path="/sales" element={<Sales />} />
+                <Route path="/stock-in" element={
+                  <PremiumRoute>
+                    <StockIn />
+                  </PremiumRoute>
+                } />
+                <Route path="/checkout" element={
+                  <PremiumRoute>
+                    <Checkout />
+                  </PremiumRoute>
+                } />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/settings" element={<Settings />} />
-                <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
+                <Route
+                  path="/admin"
+                  element={
+                    <AdminRoute>
+                      <Admin />
+                    </AdminRoute>
+                  }
+                />
                 <Route index element={<Navigate to="/dashboard" replace />} />
               </Route>
 
@@ -152,21 +223,21 @@ export default function App() {
           toastOptions={{
             duration: 3500,
             style: {
-              background: '#fff',
-              color: '#111827',
-              fontFamily: 'var(--font-display)',
+              background: "#fff",
+              color: "#111827",
+              fontFamily: "var(--font-display)",
               fontWeight: 600,
-              fontSize: '14px',
-              borderRadius: '12px',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
-              border: '1px solid #E5E7EB',
-              padding: '12px 16px',
+              fontSize: "14px",
+              borderRadius: "12px",
+              boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+              border: "1px solid #E5E7EB",
+              padding: "12px 16px",
             },
             success: {
-              iconTheme: { primary: '#16A34A', secondary: '#fff' },
+              iconTheme: { primary: "#16A34A", secondary: "#fff" },
             },
             error: {
-              iconTheme: { primary: '#EF4444', secondary: '#fff' },
+              iconTheme: { primary: "#EF4444", secondary: "#fff" },
             },
           }}
         />

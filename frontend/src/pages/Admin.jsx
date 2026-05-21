@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import api, { formatCurrency, formatDate } from '../utils/api';
 import styles from './Admin.module.css';
+import { Lock, BarChart3, Key, Users, TrendingUp, Coins } from 'lucide-react';
 
 export default function Admin() {
   const { t } = useTranslation();
@@ -107,7 +108,7 @@ export default function Admin() {
   return (
     <div className={styles.adminContainer}>
       <div className={styles.adminHeader}>
-        <h1>🔐 Admin Dashboard</h1>
+        <h1 style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Lock size={28} /> Admin Dashboard</h1>
         <div className={styles.headerStats}>
           <div className={styles.statCard}>
             <span className={styles.statNumber}>{stats.totalUsers || 0}</span>
@@ -129,19 +130,19 @@ export default function Admin() {
           className={`${styles.tab} ${activeTab === 'overview' ? styles.active : ''}`}
           onClick={() => setActiveTab('overview')}
         >
-          📊 Overview
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><BarChart3 size={16} /> Overview</span>
         </button>
         <button
           className={`${styles.tab} ${activeTab === 'licenses' ? styles.active : ''}`}
           onClick={() => setActiveTab('licenses')}
         >
-          🔑 License Management
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Key size={16} /> License Management</span>
         </button>
         <button
           className={`${styles.tab} ${activeTab === 'users' ? styles.active : ''}`}
           onClick={() => setActiveTab('users')}
         >
-          👥 User Management
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Users size={16} /> User Management</span>
         </button>
       </div>
 
@@ -151,7 +152,7 @@ export default function Admin() {
             <h2>System Overview</h2>
             <div className={styles.grid}>
               <div className={styles.card}>
-                <h3>📈 Recent Activity</h3>
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: 6 }}><TrendingUp size={18} /> Recent Activity</h3>
                 <div className={styles.activityList}>
                   {stats.recentActivity?.map((activity, i) => (
                     <div key={i} className={styles.activityItem}>
@@ -163,7 +164,7 @@ export default function Admin() {
               </div>
               
               <div className={styles.card}>
-                <h3>💰 Revenue Overview</h3>
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Coins size={18} /> Revenue Overview</h3>
                 <div className={styles.revenueStats}>
                   <div className={styles.revenueItem}>
                     <span className={styles.revenueLabel}>Today</span>
@@ -212,7 +213,7 @@ export default function Admin() {
                     disabled={generatingLicense}
                     className="btn btn-primary"
                   >
-                    {generatingLicense ? 'Generating...' : '🔑 Generate License'}
+                    {generatingLicense ? 'Generating...' : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Key size={16} /> Generate License</span>}
                   </button>
                 </div>
               </div>
