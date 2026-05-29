@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import Logo from '../components/common/Logo';
 import api from '../utils/api-enhanced';
 import styles from './Auth.module.css';
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function Login() {
   console.log('🔑 Login page is rendering...');
@@ -21,6 +22,7 @@ export default function Login() {
   const [forgotPasswordMode, setForgotPasswordMode] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const validate = () => {
     const errs = {};
@@ -144,20 +146,30 @@ export default function Login() {
                   Forgot Password?
                 </button>
               </div>
-              <input
-                type="password"
-                className={`form-input form-input-lg ${errors.password ? 'error' : ''}`}
-                placeholder="•••••••"
-                value={form.password}
-                onChange={(e) => {
-                  const newValue = e.target.value;
-                  setForm(prev => ({ ...prev, password: newValue }));
-                  if (errors.password) {
-                    setErrors(prev => ({ ...prev, password: '' }));
-                  }
-                }}
-                autoComplete="current-password"
-              />
+              <div className={styles.passwordWrapper}>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  className={`form-input form-input-lg ${errors.password ? 'error' : ''} ${styles.passwordInput}`}
+                  placeholder="•••••••"
+                  value={form.password}
+                  onChange={(e) => {
+                    const newValue = e.target.value;
+                    setForm(prev => ({ ...prev, password: newValue }));
+                    if (errors.password) {
+                      setErrors(prev => ({ ...prev, password: '' }));
+                    }
+                  }}
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  className={styles.passwordToggle}
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
               {errors.password && <span className="form-error">{errors.password}</span>}
             </div>
 

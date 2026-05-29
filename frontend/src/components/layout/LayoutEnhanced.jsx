@@ -303,14 +303,6 @@ const LayoutEnhanced = () => {
           zIndex: 10
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            {/* Mobile-only Branding (Logo on left) */}
-            {isMobile && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Logo size="small" />
-                <span style={{ fontWeight: '800', fontSize: '16px', color: 'var(--text)' }}>Duka Profit</span>
-              </div>
-            )}
-
             {/* Hamburger Toggle Button (Next to it) */}
             <button
               onClick={toggleSidebar}
@@ -331,6 +323,14 @@ const LayoutEnhanced = () => {
             >
               <Menu size={20} />
             </button>
+            {/* Mobile-only Branding (Logo on left) */}
+            {isMobile && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Logo size="small" />
+              </div>
+            )}
+
+            
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>

@@ -51,7 +51,10 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('duka_token');
       localStorage.removeItem('duka_user');
-      window.location.href = '/login';
+      const pathname = window.location.pathname;
+      if (pathname !== '/login' && pathname !== '/register') {
+        window.location.href = '/login';
+      }
     }
     
     return Promise.reject(error);

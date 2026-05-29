@@ -5,6 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import Logo from "../components/common/Logo";
 import { useAuth } from "../context/AuthContext";
 import styles from "./Auth.module.css";
+import { Eye, EyeOff } from "lucide-react";
 
 const FormField = ({
   id,
@@ -17,26 +18,41 @@ const FormField = ({
   errors,
   setErrors,
 }) => {
+  const [showPassword, setShowPassword] = useState(false);
   const fieldValue = form[id] || "";
+  const isPasswordType = type === "password";
+  const currentType = isPasswordType ? (showPassword ? "text" : "password") : type;
 
   return (
     <div className="form-group">
       <label className="form-label">{label}</label>
-      <input
-        type={type}
-        className={`form-input ${errors[id] ? "error" : ""}`}
-        placeholder={placeholder}
-        value={fieldValue}
-        onChange={(e) => {
-          const newValue = e.target.value;
-          setForm((prev) => ({ ...prev, [id]: newValue }));
-          // Clear error for this field when user starts typing
-          if (errors[id]) {
-            setErrors((prev) => ({ ...prev, [id]: "" }));
-          }
-        }}
-        autoComplete={autoComplete}
-      />
+      <div className={isPasswordType ? styles.passwordWrapper : ""}>
+        <input
+          type={currentType}
+          className={`form-input ${errors[id] ? "error" : ""} ${isPasswordType ? styles.passwordInput : ""}`}
+          placeholder={placeholder}
+          value={fieldValue}
+          onChange={(e) => {
+            const newValue = e.target.value;
+            setForm((prev) => ({ ...prev, [id]: newValue }));
+            // Clear error for this field when user starts typing
+            if (errors[id]) {
+              setErrors((prev) => ({ ...prev, [id]: "" }));
+            }
+          }}
+          autoComplete={autoComplete}
+        />
+        {isPasswordType && (
+          <button
+            type="button"
+            className={styles.passwordToggle}
+            onClick={() => setShowPassword(!showPassword)}
+            aria-label={showPassword ? "Hide password" : "Show password"}
+          >
+            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+          </button>
+        )}
+      </div>
       {errors[id] && <span className="form-error">{errors[id]}</span>}
     </div>
   );
