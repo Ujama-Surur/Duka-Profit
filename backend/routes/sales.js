@@ -59,6 +59,8 @@ router.get('/', [
             costPriceSnapshot: item.costPrice,
             sellingPriceSnapshot: item.unitPrice,
             paymentMethod: sale.paymentMethod,
+            customerName: sale.customerName,
+            customerPhone: sale.customerPhone,
             isCheckout: true,
           });
         }
@@ -99,7 +101,15 @@ router.post('/', [
   validate,
 ], async (req, res) => {
   try {
-    const { productId, quantity } = req.body;
+    const { productId, quantity, paymentMethod = 'cash', customerName, customerPhone } = req.body;
+
+    if (!['cash', 'momo', 'card', 'bank', 'credit'].includes(paymentMethod)) {
+      return res.status(400).json({ message: 'Invalid payment method.' });
+    }
+
+    if (paymentMethod === 'credit' && (!customerName || !customerName.trim())) {
+      return res.status(400).json({ message: 'Customer name is required for credit sales.' });
+    }
 
     // Verify product belongs to user and check stock
     const product = await Product.findOne({ _id: productId, userId: req.user._id, isActive: true });
@@ -121,6 +131,9 @@ router.post('/', [
       quantity: parseInt(quantity),
       costPriceSnapshot: product.costPrice,
       sellingPriceSnapshot: product.sellingPrice,
+      paymentMethod,
+      customerName: paymentMethod === 'credit' ? customerName : undefined,
+      customerPhone: paymentMethod === 'credit' ? customerPhone : undefined,
       profit: 0,   // calculated in pre-save
       revenue: 0,  // calculated in pre-save
     });
@@ -128,6 +141,23 @@ router.post('/', [
     // Reduce product stock
     await Product.findByIdAndUpdate(product._id, { 
       $inc: { stock: -quantity } 
+    });
+
+    const transactionDesc = paymentMethod === 'credit'
+      ? `Credit Sale of ${product.productName} (x${quantity}) to ${customerName}`
+      : `Sale of ${product.productName} (x${quantity}) [${paymentMethod.toUpperCase()}]`;
+
+    // Create automatic Financial income transaction log
+    const Transaction = require('../models/Transaction');
+    await Transaction.create({
+      userId: req.user._id,
+      type: paymentMethod === 'credit' ? 'debit_waiting' : 'income',
+      amount: sale.revenue || (product.sellingPrice * quantity),
+      category: 'sales',
+      source: 'sale',
+      referenceId: sale._id,
+      description: transactionDesc,
+      date: sale.createdAt || new Date(),
     });
 
     // Re-fetch with product populated
@@ -151,74 +181,97 @@ router.post('/checkout', premiumOrAdmin, [
   body('items').isArray().withMessage('Items must be an array'),
   body('items.*.productId').isMongoId().withMessage('Invalid product ID'),
   body('items.*.quantity').isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
-  body('paymentMethod').optional().isIn(['cash', 'card', 'mobile_money']).withMessage('Invalid payment method'),
+  body('paymentMethod').optional().isIn(['cash', 'momo', 'card', 'bank', 'credit']).withMessage('Invalid payment method'),
   validate,
-], async (req, res) => {
-  try {
-    const { items, paymentMethod = 'cash' } = req.body;
+ ], async (req, res) => {
+   try {
+     const { items, paymentMethod = 'cash', customerName, customerPhone } = req.body;
 
-    // Verify all products and check stock
-    const productIds = items.map(item => item.productId);
-    const products = await Product.find({ _id: { $in: productIds }, userId: req.user._id, isActive: true });
-    
-    if (products.length !== productIds.length) {
-      return res.status(404).json({ message: 'One or more products not found.' });
-    }
+     if (paymentMethod === 'credit' && (!customerName || !customerName.trim())) {
+       return res.status(400).json({ message: 'Customer name is required for credit checkout.' });
+     }
+ 
+     // Verify all products and check stock
+     const productIds = items.map(item => item.productId);
+     const products = await Product.find({ _id: { $in: productIds }, userId: req.user._id, isActive: true });
+     
+     if (products.length !== productIds.length) {
+       return res.status(404).json({ message: 'One or more products not found.' });
+     }
+ 
+     // Create product map for easy lookup
+     const productMap = {};
+     products.forEach(p => productMap[p._id.toString()] = p);
+ 
+     // Validate stock for all items
+     for (const item of items) {
+       const product = productMap[item.productId];
+       if (product.stock < item.quantity) {
+         return res.status(400).json({ 
+           message: `Insufficient stock for ${product.productName}.`,
+           availableStock: product.stock,
+           requestedQuantity: item.quantity
+         });
+       }
+     }
+ 
+     // Calculate totals
+     let totalAmount = 0;
+     let totalProfit = 0;
+     const saleItems = items.map(item => {
+       const product = productMap[item.productId];
+       const subtotal = product.sellingPrice * item.quantity;
+       const profit = (product.sellingPrice - product.costPrice) * item.quantity;
+       totalAmount += subtotal;
+       totalProfit += profit;
+       return {
+         productId: product._id,
+         productName: product.productName,
+         quantity: item.quantity,
+         unitPrice: product.sellingPrice,
+         costPrice: product.costPrice,
+         subtotal,
+       };
+     });
+ 
+     // Create sale record with all items
+     const sale = await Sale.create({
+       userId: req.user._id,
+       items: saleItems,
+       totalAmount,
+       totalProfit,
+       paymentMethod,
+       customerName: paymentMethod === 'credit' ? customerName : undefined,
+       customerPhone: paymentMethod === 'credit' ? customerPhone : undefined,
+       profit: totalProfit,
+       revenue: totalAmount,
+     });
+ 
+     // Reduce stock for all products
+     const stockUpdates = items.map(item => ({
+       updateOne: {
+         filter: { _id: item.productId },
+         update: { $inc: { stock: -item.quantity } }
+       }
+     }));
+     await Product.bulkWrite(stockUpdates);
+ 
+     const transactionDesc = paymentMethod === 'credit'
+       ? `Credit Checkout sale #${sale._id} (${saleItems.length} items) to ${customerName}`
+       : `Checkout sale #${sale._id} (${saleItems.length} items) [${paymentMethod.toUpperCase()}]`;
 
-    // Create product map for easy lookup
-    const productMap = {};
-    products.forEach(p => productMap[p._id.toString()] = p);
-
-    // Validate stock for all items
-    for (const item of items) {
-      const product = productMap[item.productId];
-      if (product.stock < item.quantity) {
-        return res.status(400).json({ 
-          message: `Insufficient stock for ${product.productName}.`,
-          availableStock: product.stock,
-          requestedQuantity: item.quantity
-        });
-      }
-    }
-
-    // Calculate totals
-    let totalAmount = 0;
-    let totalProfit = 0;
-    const saleItems = items.map(item => {
-      const product = productMap[item.productId];
-      const subtotal = product.sellingPrice * item.quantity;
-      const profit = (product.sellingPrice - product.costPrice) * item.quantity;
-      totalAmount += subtotal;
-      totalProfit += profit;
-      return {
-        productId: product._id,
-        productName: product.productName,
-        quantity: item.quantity,
-        unitPrice: product.sellingPrice,
-        costPrice: product.costPrice,
-        subtotal,
-      };
-    });
-
-    // Create sale record with all items
-    const sale = await Sale.create({
-      userId: req.user._id,
-      items: saleItems,
-      totalAmount,
-      totalProfit,
-      paymentMethod,
-      profit: totalProfit,
-      revenue: totalAmount,
-    });
-
-    // Reduce stock for all products
-    const stockUpdates = items.map(item => ({
-      updateOne: {
-        filter: { _id: item.productId },
-        update: { $inc: { stock: -item.quantity } }
-      }
-    }));
-    await Product.bulkWrite(stockUpdates);
+     // Create automatic Financial income transaction log
+     const Transaction = require('../models/Transaction');
+     await Transaction.create({
+       userId: req.user._id,
+       type: paymentMethod === 'credit' ? 'debit_waiting' : 'income',
+       amount: totalAmount,
+       category: 'sales',
+       source: 'sale',
+       referenceId: sale._id,
+       description: transactionDesc,
+       date: sale.createdAt || new Date(),
+     });
 
     res.status(201).json(sale);
   } catch (err) {
@@ -242,7 +295,23 @@ router.post('/batch-sync', [
     // Process each sale
     for (const saleData of sales) {
       try {
-        const { productId, quantity } = saleData;
+        const { productId, quantity, paymentMethod = 'cash', customerName, customerPhone } = saleData;
+
+        if (!['cash', 'momo', 'card', 'bank', 'credit'].includes(paymentMethod)) {
+          errors.push({ 
+            sale: saleData, 
+            error: 'Invalid payment method' 
+          });
+          continue;
+        }
+
+        if (paymentMethod === 'credit' && (!customerName || !customerName.trim())) {
+          errors.push({ 
+            sale: saleData, 
+            error: 'Customer name is required for credit sales.' 
+          });
+          continue;
+        }
 
         // Verify product belongs to user and check stock
         const product = await Product.findOne({ _id: productId, userId: req.user._id, isActive: true });
@@ -272,6 +341,9 @@ router.post('/batch-sync', [
           quantity: parseInt(quantity),
           costPriceSnapshot: product.costPrice,
           sellingPriceSnapshot: product.sellingPrice,
+          paymentMethod,
+          customerName: paymentMethod === 'credit' ? customerName : undefined,
+          customerPhone: paymentMethod === 'credit' ? customerPhone : undefined,
           profit: 0,
           revenue: 0,
         });
@@ -279,6 +351,23 @@ router.post('/batch-sync', [
         // Reduce product stock
         await Product.findByIdAndUpdate(product._id, { 
           $inc: { stock: -quantity } 
+        });
+
+        const transactionDesc = paymentMethod === 'credit'
+          ? `Offline Sync: Credit Sale of ${product.productName} (x${quantity}) to ${customerName}`
+          : `Offline Sync: Sale of ${product.productName} (x${quantity}) [${paymentMethod.toUpperCase()}]`;
+
+        // Create automatic Financial income transaction log
+        const Transaction = require('../models/Transaction');
+        await Transaction.create({
+          userId: req.user._id,
+          type: paymentMethod === 'credit' ? 'debit_waiting' : 'income',
+          amount: sale.revenue || (product.sellingPrice * quantity),
+          category: 'sales',
+          source: 'sale',
+          referenceId: sale._id,
+          description: transactionDesc,
+          date: sale.createdAt || new Date(),
         });
 
         // Re-fetch with product populated
@@ -328,6 +417,11 @@ router.delete('/:id', [
     }
 
     await sale.deleteOne();
+
+    // Void the associated financial transaction record
+    const Transaction = require('../models/Transaction');
+    await Transaction.deleteOne({ referenceId: sale._id, userId: req.user._id });
+
     res.json({ message: 'Sale voided successfully.' });
   } catch (err) {
     res.status(500).json({ message: 'Failed to void sale.' });

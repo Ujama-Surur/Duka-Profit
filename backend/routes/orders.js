@@ -101,6 +101,20 @@ router.put('/:id/approve', async (req, res, next) => {
     order.approvedBy = req.user._id;
 
     await order.save();
+
+    // Create automatic Financial expense transaction log
+    const Transaction = require('../models/Transaction');
+    await Transaction.create({
+      userId: req.user._id,
+      type: 'expense',
+      amount: order.totalBuyingCost || 0,
+      category: 'replenishment',
+      source: 'order',
+      referenceId: order._id,
+      description: `Approved stock replenishment order ${order.orderNumber}`,
+      date: order.approvedAt || new Date(),
+    });
+
     res.json(order);
   } catch (err) {
     next(err);

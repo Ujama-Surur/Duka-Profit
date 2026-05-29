@@ -5,6 +5,8 @@ export const translations = {
       // Navigation
       dashboard: "Dashboard",
       products: "Products",
+      stock: "Stock Inventory",
+      finance: "Financial Ledger",
       inventoryOrders: "Inventory Orders",
       categoriesUnits: "Categories & Units",
       importProducts: "Import Products",
@@ -128,6 +130,8 @@ export const translations = {
     translation: {
       dashboard: "Imbonerahamwe",
       products: "Ibicuruzwa",
+      stock: "Ububiko",
+      finance: "Ubuzire bw'Imari",
       inventoryOrders: "Kugura Ibicuruzwa",
       categoriesUnits: "Ibyiciro & Ibikoresho",
       sales: "Imigurire",
@@ -199,6 +203,8 @@ export const translations = {
     translation: {
       dashboard: "Dashibodi",
       products: "Bidhaa",
+      stock: "Stoki",
+      finance: "Usimamizi wa Fedha",
       inventoryOrders: "Oda za Bidhaa",
       categoriesUnits: "Jamii na Vipimo",
       sales: "Mauzo",
@@ -269,6 +275,8 @@ export const translations = {
     translation: {
       dashboard: "Tableau de bord",
       products: "Produits",
+      stock: "Inventaire du Stock",
+      finance: "Finances",
       inventoryOrders: "Commandes de Stock",
       categoriesUnits: "Catégories & Unités",
       sales: "Ventes",

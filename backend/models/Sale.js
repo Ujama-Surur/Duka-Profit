@@ -49,8 +49,21 @@ const saleSchema = new mongoose.Schema({
   },
   paymentMethod: {
     type: String,
-    enum: ['cash', 'card', 'mobile_money'],
+    enum: ['cash', 'momo', 'card', 'bank', 'credit'],
     default: 'cash',
+  },
+  customerName: {
+    type: String,
+    required: false,
+  },
+  customerPhone: {
+    type: String,
+    required: false,
+  },
+  paymentStatus: {
+    type: String,
+    enum: ['unpaid', 'paid'],
+    default: 'unpaid',
   },
   // Snapshot prices at time of sale (in case product prices change later)
   costPriceSnapshot: {

@@ -7,9 +7,9 @@ import RemoteScannerPairing from '../components/RemoteScannerPairing';
 import { useAuth } from '../context/AuthContext';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
-import { ShoppingCart, Camera, Smartphone, Trash2, BarChart3, Receipt, X, Printer, Download, WifiOff, Utensils, Home, Package, Shirt, Banknote, CreditCard, Wifi, AlertTriangle, Check } from 'lucide-react';
+import { ShoppingCart, Camera, Smartphone, Trash2, BarChart3, Receipt, X, Printer, Download, WifiOff, Utensils, Home, Package, Shirt, Banknote, CreditCard, Wifi, AlertTriangle, Check, Building, User } from 'lucide-react';
 
-const PAYMENT_METHODS = ['cash', 'card', 'mobile_money'];
+const PAYMENT_METHODS = ['cash', 'momo', 'card', 'bank', 'credit'];
 
 export default function Checkout() {
   const { t } = useTranslation();
@@ -21,6 +21,8 @@ export default function Checkout() {
   const [lookupLoading, setLookupLoading] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
   const [showReceipt, setShowReceipt] = useState(null);
   const [salesHistory, setSalesHistory] = useState([]);
   const [showRemoteScanner, setShowRemoteScanner] = useState(false);
@@ -204,6 +206,11 @@ export default function Checkout() {
       return;
     }
 
+    if (paymentMethod === 'credit' && (!customerName || !customerName.trim())) {
+      toast.error('Customer name is required for sales on credit');
+      return;
+    }
+
     setProcessing(true);
     try {
       const saleData = {
@@ -218,6 +225,8 @@ export default function Checkout() {
         totalAmount: cartTotal,
         totalProfit: cartProfit,
         paymentMethod,
+        customerName: paymentMethod === 'credit' ? customerName : undefined,
+        customerPhone: paymentMethod === 'credit' ? customerPhone : undefined,
       };
 
       let newSale;
@@ -254,6 +263,8 @@ export default function Checkout() {
       setShowReceipt(newSale);
       setCart([]);
       setPaymentMethod('cash');
+      setCustomerName('');
+      setCustomerPhone('');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to complete sale');
     } finally {
@@ -314,12 +325,20 @@ export default function Checkout() {
     // Payment method
     doc.setFont(undefined, 'normal');
     doc.setFontSize(10);
-    doc.text(`Payment: ${sale.paymentMethod.toUpperCase()}`, 190, finalY + 10, { align: 'right' });
+    const paymentText = `Payment: ${(sale.paymentMethod || 'CASH').toUpperCase()}`;
+    doc.text(paymentText, 190, finalY + 8, { align: 'right' });
+
+    let messageOffset = 20;
+    if (sale.paymentMethod === 'credit' && sale.customerName) {
+      const debtorText = `Customer: ${sale.customerName}${sale.customerPhone ? ` (${sale.customerPhone})` : ''}`;
+      doc.text(debtorText, 190, finalY + 14, { align: 'right' });
+      messageOffset = 26;
+    }
     
     // Thank you message
     doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.text(user?.receiptFooter || 'Thank you for your purchase!', 105, finalY + 25, { align: 'center' });
+    doc.text(user?.receiptFooter || 'Thank you for your purchase!', 105, finalY + messageOffset, { align: 'center' });
     
     // Save
     doc.save(`receipt_${sale._id}.pdf`);
@@ -341,7 +360,7 @@ export default function Checkout() {
             th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
             th { background: #06C; color: white; }
             .total { text-align: right; font-size: 18px; font-weight: bold; margin-top: 20px; }
-            .payment { text-align: right; color: #666; margin-top: 5px; }
+            .payment { text-align: right; color: #666; margin-top: 5px; text-transform: uppercase; }
             .thank-you { text-align: center; color: #666; margin-top: 30px; }
           </style>
         </head>
@@ -366,7 +385,13 @@ export default function Checkout() {
             </tbody>
           </table>
           <div class="total">Total: ${formatCurrency(sale.totalAmount)}</div>
-          <div class="payment">Payment: ${sale.paymentMethod.toUpperCase()}</div>
+          <div class="payment">Payment: ${sale.paymentMethod || 'CASH'}</div>
+          ${sale.paymentMethod === 'credit' && sale.customerName ? `
+            <div style="text-align: right; color: #444; font-size: 13px; margin-top: 5px;">
+              <strong>Customer:</strong> ${sale.customerName}
+              ${sale.customerPhone ? `<br/><strong>Phone:</strong> ${sale.customerPhone}` : ''}
+            </div>
+          ` : ''}
           <div class="thank-you">${user?.receiptFooter || 'Thank you for your purchase!'}</div>
         </body>
       </html>
@@ -588,19 +613,62 @@ export default function Checkout() {
                 {/* Payment Method */}
                 <div className="form-group" style={{ marginTop: '16px' }}>
                   <label className="form-label">Payment Method</label>
-                  <div className="payment-buttons" style={{ display: 'flex', gap: '8px' }}>
+                  <div className="payment-buttons" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                     {PAYMENT_METHODS.map(method => (
                       <button
                         key={method}
                         type="button"
                         className={`btn ${paymentMethod === method ? 'btn-primary' : 'btn-secondary'}`}
                         onClick={() => setPaymentMethod(method)}
+                        style={{ display: 'inline-flex', alignItems: 'center', padding: '8px 12px', fontSize: '13px' }}
                       >
-                        {method === 'cash' ? <><Banknote size={16} style={{marginRight:6}} /> Cash</> : method === 'card' ? <><CreditCard size={16} style={{marginRight:6}} /> Card</> : <><Smartphone size={16} style={{marginRight:6}} /> Mobile Money</>}
+                        {method === 'cash' && <><Banknote size={16} style={{marginRight:6}} /> Cash</>}
+                        {method === 'momo' && <><Smartphone size={16} style={{marginRight:6}} /> MoMo</>}
+                        {method === 'card' && <><CreditCard size={16} style={{marginRight:6}} /> Card</>}
+                        {method === 'bank' && <><Building size={16} style={{marginRight:6}} /> Bank</>}
+                        {method === 'credit' && <><User size={16} style={{marginRight:6}} /> Credit</>}
                       </button>
                     ))}
                   </div>
                 </div>
+
+                {/* Debtor Fields for Sales on Credit */}
+                {paymentMethod === 'credit' && (
+                  <div style={{
+                    background: 'rgba(239, 68, 68, 0.05)',
+                    border: '1px dashed var(--red)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '12px',
+                    marginTop: '12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px'
+                  }}>
+                    <p style={{ color: 'var(--red)', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, margin: 0 }}>
+                      Debtor Information
+                    </p>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: 12 }}>Customer Name *</label>
+                      <input
+                        type="text"
+                        placeholder="Enter customer name..."
+                        className="form-input"
+                        value={customerName}
+                        onChange={e => setCustomerName(e.target.value)}
+                      />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: 12 }}>Customer Phone</label>
+                      <input
+                        type="text"
+                        placeholder="Enter customer phone (optional)..."
+                        className="form-input"
+                        value={customerPhone}
+                        onChange={e => setCustomerPhone(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <button
                   className="btn btn-primary btn-lg btn-full"
@@ -651,8 +719,17 @@ export default function Checkout() {
                       </span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontWeight: 600 }}>
-                        {sale.items?.length || 1} item{sale.items?.length !== 1 ? 's' : ''}
+                      <span style={{ fontWeight: 600, fontSize: '13px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <span>{sale.items?.length || 1} item{sale.items?.length !== 1 ? 's' : ''}</span>
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          color: sale.paymentMethod === 'credit' ? 'var(--red)' : 'var(--text-muted)'
+                        }}>
+                          {sale.paymentMethod || 'cash'}
+                          {sale.paymentMethod === 'credit' && sale.customerName && ` (${sale.customerName})`}
+                        </span>
                       </span>
                       <span style={{ fontWeight: 700, fontSize: '18px' }}>
                         {formatCurrency(sale.totalAmount)}
@@ -713,9 +790,15 @@ export default function Checkout() {
                 <p style={{ fontSize: '18px', fontWeight: 800 }}>
                   Total: {formatCurrency(showReceipt.totalAmount)}
                 </p>
-                <p style={{ fontSize: '14px', color: '#666' }}>
-                  Payment: {showReceipt.paymentMethod?.toUpperCase() || 'CASH'}
+                <p style={{ fontSize: '14px', color: '#666', textTransform: 'uppercase' }}>
+                  Payment: {showReceipt.paymentMethod || 'CASH'}
                 </p>
+                {showReceipt.paymentMethod === 'credit' && showReceipt.customerName && (
+                  <p style={{ fontSize: '13px', color: '#444', marginTop: '4px' }}>
+                    <strong>Customer:</strong> {showReceipt.customerName}
+                    {showReceipt.customerPhone && <> ({showReceipt.customerPhone})</>}
+                  </p>
+                )}
               </div>
 
               <div style={{ textAlign: 'center', marginTop: '20px', color: '#666' }}>

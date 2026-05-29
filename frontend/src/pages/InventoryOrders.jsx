@@ -5,7 +5,8 @@ import api, { formatCurrency, formatDate } from '../utils/api';
 import styles from './InventoryOrders.module.css';
 import { 
   FileText, Plus, Search, Trash2, Printer, Check, X, 
-  AlertTriangle, ArrowRight, CornerDownRight, HelpCircle 
+  AlertTriangle, ArrowRight, CornerDownRight, HelpCircle,
+  SlidersHorizontal, Filter
 } from 'lucide-react';
 
 export default function InventoryOrders() {
@@ -24,6 +25,16 @@ export default function InventoryOrders() {
 
   // Status Filter
   const [statusFilter, setStatusFilter] = useState('');
+
+  // Detailed Filter States
+  const [searchRef, setSearchRef] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [minCost, setMinCost] = useState('');
+  const [maxCost, setMaxCost] = useState('');
+  const [productFilter, setProductFilter] = useState('');
+  const [sortBy, setSortBy] = useState('date_desc');
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Selected Order for detail view modal
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -309,6 +320,70 @@ export default function InventoryOrders() {
     }`;
   };
 
+  const handleClearFilters = () => {
+    setStatusFilter('');
+    setSearchRef('');
+    setDateFrom('');
+    setDateTo('');
+    setMinCost('');
+    setMaxCost('');
+    setProductFilter('');
+    setSortBy('date_desc');
+  };
+
+  const filteredOrders = orders.filter(order => {
+    // 1. Search Reference / Notes
+    if (searchRef.trim()) {
+      const q = searchRef.toLowerCase();
+      const matchesNum = order.orderNumber?.toLowerCase().includes(q);
+      const matchesNotes = order.notes?.toLowerCase().includes(q);
+      if (!matchesNum && !matchesNotes) return false;
+    }
+
+    // 2. Dates
+    if (dateFrom) {
+      const from = new Date(dateFrom);
+      from.setHours(0,0,0,0);
+      if (new Date(order.createdAt) < from) return false;
+    }
+    if (dateTo) {
+      const to = new Date(dateTo);
+      to.setHours(23,59,59,999);
+      if (new Date(order.createdAt) > to) return false;
+    }
+
+    // 3. Min/Max Costs
+    if (minCost !== '' && (order.totalBuyingCost || 0) < parseFloat(minCost)) return false;
+    if (maxCost !== '' && (order.totalBuyingCost || 0) > parseFloat(maxCost)) return false;
+
+    // 4. Contained Product
+    if (productFilter) {
+      const hasProduct = order.items && order.items.some(item => item.product === productFilter);
+      if (!hasProduct) return false;
+    }
+
+    return true;
+  }).sort((a, b) => {
+    if (sortBy === 'date_desc') {
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    }
+    if (sortBy === 'date_asc') {
+      return new Date(a.createdAt) - new Date(b.createdAt);
+    }
+    if (sortBy === 'cost_desc') {
+      return (b.totalBuyingCost || 0) - (a.totalBuyingCost || 0);
+    }
+    if (sortBy === 'cost_asc') {
+      return (a.totalBuyingCost || 0) - (b.totalBuyingCost || 0);
+    }
+    if (sortBy === 'items_desc') {
+      return (b.items?.length || 0) - (a.items?.length || 0);
+    }
+    return 0;
+  });
+
+  const isFiltersActive = statusFilter || searchRef || dateFrom || dateTo || minCost || maxCost || productFilter;
+
   const totalBuyingOrder = orderItems.reduce((sum, item) => sum + (parseFloat(item.buyingPrice || 0) * (parseInt(item.quantity) || 0)), 0);
   const totalSellingOrder = orderItems.reduce((sum, item) => sum + (parseFloat(item.sellingPrice || 0) * (parseInt(item.quantity) || 0)), 0);
   const projectedProfit = totalSellingOrder - totalBuyingOrder;
@@ -358,20 +433,139 @@ export default function InventoryOrders() {
 
       {activeTab === 'list' && (
         <>
-          {/* Filters Bar */}
-          <div className={styles.filtersBar}>
-            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-muted)' }}>Filter status:</span>
-            <select 
-              className={styles.filterSelect}
-              value={statusFilter}
-              onChange={e => setStatusFilter(e.target.value)}
-            >
-              <option value="">All Statuses</option>
-              <option value="pending">Pending Approval</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
+          {/* Detailed Filters Panel */}
+          <div className={styles.filtersContainer}>
+            <div className={styles.filtersMainRow}>
+              {/* Reference Search */}
+              <div className={styles.searchBox}>
+                <span className={styles.searchIcon}><Search size={16} /></span>
+                <input
+                  className={styles.searchInput}
+                  placeholder="Search by order number or notes..."
+                  value={searchRef}
+                  onChange={e => setSearchRef(e.target.value)}
+                />
+              </div>
+
+              {/* Status Select */}
+              <select 
+                className={styles.filterSelect}
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value)}
+              >
+                <option value="">All Statuses</option>
+                <option value="pending">Pending Approval</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+
+              {/* Sort By Select */}
+              <select
+                className={styles.filterSelect}
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value)}
+              >
+                <option value="date_desc">Newest First</option>
+                <option value="date_asc">Oldest First</option>
+                <option value="cost_desc">Cost: High to Low</option>
+                <option value="cost_asc">Cost: Low to High</option>
+                <option value="items_desc">Items Count: High to Low</option>
+              </select>
+
+              {/* Advanced Toggle */}
+              <button
+                type="button"
+                className={`btn btn-secondary ${showAdvanced ? 'btn-active' : ''}`}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px' }}
+                onClick={() => setShowAdvanced(!showAdvanced)}
+              >
+                <SlidersHorizontal size={15} />
+                Filters
+              </button>
+
+              {/* Clear Button */}
+              {isFiltersActive && (
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--red)' }}
+                  onClick={handleClearFilters}
+                >
+                  <X size={15} />
+                  Clear
+                </button>
+              )}
+            </div>
+
+            {/* Advanced Filters Expandable Grid */}
+            {showAdvanced && (
+              <div className={styles.advancedFiltersGrid}>
+                {/* Date From */}
+                <div className={styles.filterGroup}>
+                  <label className={styles.filterLabel}>Date From</label>
+                  <input
+                    type="date"
+                    className={styles.filterInput}
+                    value={dateFrom}
+                    onChange={e => setDateFrom(e.target.value)}
+                  />
+                </div>
+
+                {/* Date To */}
+                <div className={styles.filterGroup}>
+                  <label className={styles.filterLabel}>Date To</label>
+                  <input
+                    type="date"
+                    className={styles.filterInput}
+                    value={dateTo}
+                    onChange={e => setDateTo(e.target.value)}
+                  />
+                </div>
+
+                {/* Min Cost */}
+                <div className={styles.filterGroup}>
+                  <label className={styles.filterLabel}>Min Cost (RWF)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="Min total cost..."
+                    className={styles.filterInput}
+                    value={minCost}
+                    onChange={e => setMinCost(e.target.value)}
+                  />
+                </div>
+
+                {/* Max Cost */}
+                <div className={styles.filterGroup}>
+                  <label className={styles.filterLabel}>Max Cost (RWF)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="Max total cost..."
+                    className={styles.filterInput}
+                    value={maxCost}
+                    onChange={e => setMaxCost(e.target.value)}
+                  />
+                </div>
+
+                {/* Product Filter */}
+                <div className={styles.filterGroup} style={{ gridColumn: 'span 2' }}>
+                  <label className={styles.filterLabel}>Contains Product</label>
+                  <select
+                    className={styles.filterSelect}
+                    style={{ width: '100%', minWidth: '100%' }}
+                    value={productFilter}
+                    onChange={e => setProductFilter(e.target.value)}
+                  >
+                    <option value="">Filter by product contained in order...</option>
+                    {products.map(p => (
+                      <option key={p._id} value={p._id}>{p.productName}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Orders list rendering */}
@@ -379,15 +573,30 @@ export default function InventoryOrders() {
             <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0' }}>
               <div className="spinner" />
             </div>
-          ) : orders.length === 0 ? (
+          ) : filteredOrders.length === 0 ? (
             <div className="card" style={{ padding: '60px 20px', textAlign: 'center' }}>
               <FileText size={48} style={{ color: 'var(--text-muted)', marginBottom: 16 }} />
-              <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>No Orders Found</h3>
-              <p style={{ color: 'var(--text-muted)' }}>There are no stock replenishment orders recorded yet.</p>
+              <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
+                {isFiltersActive ? 'No Matching Orders' : 'No Orders Found'}
+              </h3>
+              <p style={{ color: 'var(--text-muted)' }}>
+                {isFiltersActive 
+                  ? 'No stock orders match your active filter parameters. Try clearing them.' 
+                  : 'There are no stock replenishment orders recorded yet.'}
+              </p>
+              {isFiltersActive && (
+                <button 
+                  className="btn btn-secondary" 
+                  style={{ marginTop: 12 }} 
+                  onClick={handleClearFilters}
+                >
+                  Clear All Filters
+                </button>
+              )}
             </div>
           ) : (
             <div className={styles.ordersList}>
-              {orders.map(order => (
+              {filteredOrders.map(order => (
                 <div 
                   key={order._id} 
                   className={styles.orderCard}

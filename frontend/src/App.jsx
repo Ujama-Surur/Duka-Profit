@@ -34,6 +34,7 @@ const Admin = lazy(() => import("./pages/Admin"));
 const InventoryOrders = lazy(() => import("./pages/InventoryOrders"));
 const CategoriesUnits = lazy(() => import("./pages/CategoriesUnits"));
 const Stock = lazy(() => import("./pages/Stock"));
+const Finance = lazy(() => import("./pages/Finance"));
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -190,6 +191,7 @@ export default function App() {
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/products" element={<Products />} />
                 <Route path="/stock" element={<Stock />} />
+                <Route path="/finance" element={<Finance />} />
                 <Route path="/inventory-orders" element={<InventoryOrders />} />
                 <Route path="/categories-units" element={<CategoriesUnits />} />
                 <Route path="/import-products" element={<ImportProducts />} />

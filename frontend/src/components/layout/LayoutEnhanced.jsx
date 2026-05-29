@@ -18,7 +18,9 @@ import {
   PlusSquare,
   Receipt,
   FileText,
-  Layers
+  Layers,
+  Archive,
+  DollarSign
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -27,6 +29,8 @@ const NAV_ITEMS = [
   { path: '/checkout', icon: <ShoppingCart size={20} />, key: 'checkout', premiumOnly: true },
   { path: '/sales', icon: <Receipt size={20} />, key: 'sales' },
   { path: '/products', icon: <Package size={20} />, key: 'products' },
+  { path: '/stock', icon: <Archive size={20} />, key: 'stock' },
+  { path: '/finance', icon: <DollarSign size={20} />, key: 'finance' },
   { path: '/inventory-orders', icon: <FileText size={20} />, key: 'inventoryOrders' },
   { path: '/categories-units', icon: <Layers size={20} />, key: 'categoriesUnits' },
   { path: '/import-products', icon: <Download size={20} />, key: 'importProducts' },

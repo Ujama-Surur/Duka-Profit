@@ -5,7 +5,7 @@ import { format, subDays, startOfWeek, startOfMonth } from 'date-fns';
 import toast from 'react-hot-toast';
 import api, { formatCurrency, formatDate, offlineData } from '../utils/api';
 import styles from './Reports.module.css';
-import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, BarChart3, FileText, Download, Trophy, CreditCard, Banknote, Smartphone, Package, Ruler, ClipboardList, FileSpreadsheet } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, BarChart3, FileText, Download, Trophy, CreditCard, Banknote, Smartphone, Package, Ruler, ClipboardList, FileSpreadsheet, Building, User } from 'lucide-react';
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload?.length) {
@@ -266,12 +266,21 @@ export default function Reports() {
                     borderRadius:'var(--radius-md)'
                   }}>
                     <div style={{display:'flex',alignItems:'center',gap:12}}>
-                      <span style={{fontSize:20}}>
-                        {pm.method === 'cash' ? <Banknote size={20} /> : pm.method === 'card' ? <CreditCard size={20} /> : <Smartphone size={20} />}
+                      <span style={{fontSize:20, display:'flex', alignItems:'center'}}>
+                        {pm.method === 'cash' && <Banknote size={20} />}
+                        {(pm.method === 'momo' || pm.method === 'mobile_money') && <Smartphone size={20} />}
+                        {pm.method === 'card' && <CreditCard size={20} />}
+                        {pm.method === 'bank' && <Building size={20} />}
+                        {pm.method === 'credit' && <User size={20} />}
                       </span>
                       <div>
                         <p style={{fontFamily:'var(--font-display)',fontWeight:600,fontSize:14}}>
-                          {pm.method.charAt(0).toUpperCase() + pm.method.slice(1)}
+                          {pm.method === 'cash' && 'Cash'}
+                          {(pm.method === 'momo' || pm.method === 'mobile_money') && 'Mobile Money (MoMo)'}
+                          {pm.method === 'card' && 'Credit Card'}
+                          {pm.method === 'bank' && 'Bank Transfer'}
+                          {pm.method === 'credit' && 'Credit Sale'}
+                          {!['cash', 'momo', 'mobile_money', 'card', 'bank', 'credit'].includes(pm.method) && pm.method.toUpperCase()}
                         </p>
                         <p style={{fontSize:12,color:'var(--text-muted)'}}>{pm.count} transaction{pm.count !== 1 ? 's' : ''}</p>
                       </div>
