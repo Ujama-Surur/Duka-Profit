@@ -87,22 +87,27 @@ router.get('/barcode/:code', async (req, res) => {
 router.post('/', [
   body('productName').trim().notEmpty().withMessage('Product name is required').isLength({ max: 200 }),
   body('barcode').optional({ values: 'falsy' }).trim().isLength({ max: 200 }).withMessage('Barcode is too long'),
-  body('costPrice').isFloat({ min: 0 }).withMessage('Cost price must be a positive number'),
-  body('sellingPrice').isFloat({ min: 0 }).withMessage('Selling price must be a positive number'),
-  body('quantity').isInt({ min: 0 }).withMessage('Quantity must be a non-negative integer'),
+  body('costPrice').optional().isFloat({ min: 0 }).withMessage('Cost price must be a positive number'),
+  body('sellingPrice').optional().isFloat({ min: 0 }).withMessage('Selling price must be a positive number'),
+  body('quantity').optional().isInt({ min: 0 }).withMessage('Quantity must be a non-negative integer'),
   body('expirationDate').optional({ values: 'falsy' }).isISO8601().withMessage('Expiration date must be a valid date'),
   body('stock').optional().isInt({ min: 0 }).withMessage('Stock must be a non-negative integer'),
   body('lowStockThreshold').optional().isInt({ min: 0 }).withMessage('Low stock threshold must be a non-negative integer'),
-  body('category').optional().isIn(['food', 'electronics', 'clothing', 'household', 'other']),
+  body('category').optional({ values: 'falsy' }).trim().isLength({ max: 100 }),
+  body('unitType').optional({ values: 'falsy' }).trim().isLength({ max: 50 }),
+  body('productImageUrl').optional({ values: 'falsy' }).trim(),
   validate,
 ], async (req, res) => {
   try {
-    const { productName, barcode, costPrice, sellingPrice, quantity, expirationDate, stock, lowStockThreshold, category } = req.body;
+    const { productName, barcode, costPrice = 0, sellingPrice = 0, quantity = 0, expirationDate, stock = 0, lowStockThreshold = 10, category, unitType, productImageUrl } = req.body;
 
-    if (parseFloat(sellingPrice) <= parseFloat(costPrice)) {
+    const parsedCost = parseFloat(costPrice || 0);
+    const parsedSell = parseFloat(sellingPrice || 0);
+
+    if (parsedSell > 0 && parsedSell <= parsedCost) {
       return res.status(400).json({ message: 'Selling price must be higher than cost price.' });
     }
-    if ((category || 'other') === 'food' && !expirationDate) {
+    if ((category || 'other').toLowerCase() === 'food' && !expirationDate && parsedSell > 0) {
       return res.status(400).json({ message: 'Expiration date is required for food items.' });
     }
 
@@ -110,16 +115,18 @@ router.post('/', [
       userId: req.user._id,
       productName,
       ...(barcode ? { barcode: String(barcode).trim() } : {}),
-      costPrice: parseFloat(costPrice),
-      sellingPrice: parseFloat(sellingPrice),
-      quantity: parseInt(quantity),
-      stock: parseInt(quantity) || 0,  // Use quantity as initial stock
-      lowStockThreshold: parseInt(lowStockThreshold) || 10,
+      costPrice: parsedCost,
+      sellingPrice: parsedSell,
+      quantity: parseInt(quantity || 0),
+      stock: parseInt(quantity || 0),
+      lowStockThreshold: parseInt(lowStockThreshold || 10),
       category: category || 'other',
+      unitType: unitType || 'pieces',
+      productImageUrl,
     };
     
     // Only add expirationDate if provided and it's a food item
-    if (expirationDate && category === 'food') {
+    if (expirationDate && category?.toLowerCase() === 'food') {
       productData.expirationDate = new Date(expirationDate);
     }
     
@@ -152,14 +159,16 @@ router.put('/:id', [
   body('expirationDate').optional({ values: 'falsy' }).isISO8601().withMessage('Expiration date must be a valid date'),
   body('stock').optional().isInt({ min: 0 }).withMessage('Stock must be a non-negative integer'),
   body('lowStockThreshold').optional().isInt({ min: 0 }).withMessage('Low stock threshold must be a non-negative integer'),
-  body('category').optional().isIn(['food', 'electronics', 'clothing', 'household', 'other']),
+  body('category').optional({ values: 'falsy' }).trim().isLength({ max: 100 }),
+  body('unitType').optional({ values: 'falsy' }).trim().isLength({ max: 50 }),
+  body('productImageUrl').optional({ values: 'falsy' }).trim(),
   validate,
 ], async (req, res) => {
   try {
     const product = await Product.findOne({ _id: req.params.id, userId: req.user._id });
     if (!product) return res.status(404).json({ message: 'Product not found.' });
 
-    const { productName, barcode, costPrice, sellingPrice, quantity, expirationDate, stock, lowStockThreshold, category } = req.body;
+    const { productName, barcode, costPrice, sellingPrice, quantity, expirationDate, stock, lowStockThreshold, category, unitType, productImageUrl } = req.body;
 
     const newCost = parseFloat(costPrice ?? product.costPrice);
     const newSell = parseFloat(sellingPrice ?? product.sellingPrice);
@@ -173,17 +182,20 @@ router.put('/:id', [
     if (costPrice !== undefined) product.costPrice = newCost;
     if (sellingPrice !== undefined) product.sellingPrice = newSell;
     if (quantity !== undefined) product.quantity = parseInt(quantity);
+    if (unitType !== undefined) product.unitType = unitType;
+    if (productImageUrl !== undefined) product.productImageUrl = productImageUrl;
     
     // Only update expirationDate if provided and it's a food item
+    const targetCategory = category !== undefined ? category : product.category;
     if (expirationDate !== undefined) {
-      if (expirationDate && (category || product.category) === 'food') {
+      if (expirationDate && targetCategory?.toLowerCase() === 'food') {
         product.expirationDate = new Date(expirationDate);
       }
     }
     if (category !== undefined) product.category = category;
-    if (product.category !== 'food') {
+    if (product.category?.toLowerCase() !== 'food') {
       product.expirationDate = undefined;
-    } else if (!product.expirationDate) {
+    } else if (!product.expirationDate && expirationDate === undefined && !product.expirationDate) {
       return res.status(400).json({ message: 'Expiration date is required for food items.' });
     }
     

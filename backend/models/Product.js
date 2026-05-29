@@ -19,15 +19,16 @@ const productSchema = new mongoose.Schema({
   },
   costPrice: {
     type: Number,
-    required: [true, 'Cost price is required'],
+    default: 0,
     min: [0, 'Cost price cannot be negative'],
   },
   sellingPrice: {
     type: Number,
-    required: [true, 'Selling price is required'],
+    default: 0,
     min: [0, 'Selling price cannot be negative'],
     validate: {
       validator: function (v) {
+        if (v === 0 && this.costPrice === 0) return true;
         return v > this.costPrice;
       },
       message: 'Selling price must be greater than cost price',
@@ -35,13 +36,15 @@ const productSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['food', 'electronics', 'clothing', 'household', 'other'],
     default: 'other',
   },
   unitType: {
     type: String,
-    enum: ['pieces', 'box', 'kg', 'whole sack', 'liter', 'meter', 'pack'],
     default: 'pieces',
+  },
+  productImageUrl: {
+    type: String,
+    trim: true,
   },
   isActive: {
     type: Boolean,
@@ -68,20 +71,6 @@ const productSchema = new mongoose.Schema({
   },
   expirationDate: {
     type: Date,
-    required: function() {
-      // Only required for food items
-      return this.category === 'food';
-    },
-    validate: {
-      validator: function (v) {
-        // Only validate if it's a food item and value is provided
-        if (this.category === 'food' && v) {
-          return v instanceof Date && !isNaN(v.getTime());
-        }
-        return true; // Always valid for non-food items
-      },
-      message: 'Expiration date must be a valid date',
-    },
   },
 }, {
   timestamps: true,

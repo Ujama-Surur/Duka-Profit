@@ -5,6 +5,8 @@ export const translations = {
       // Navigation
       dashboard: "Dashboard",
       products: "Products",
+      inventoryOrders: "Inventory Orders",
+      categoriesUnits: "Categories & Units",
       importProducts: "Import Products",
       sales: "Sales",
       reports: "Reports",
@@ -126,6 +128,8 @@ export const translations = {
     translation: {
       dashboard: "Imbonerahamwe",
       products: "Ibicuruzwa",
+      inventoryOrders: "Kugura Ibicuruzwa",
+      categoriesUnits: "Ibyiciro & Ibikoresho",
       sales: "Imigurire",
       reports: "Raporo",
       settings: "Igenamiterere",
@@ -195,6 +199,8 @@ export const translations = {
     translation: {
       dashboard: "Dashibodi",
       products: "Bidhaa",
+      inventoryOrders: "Oda za Bidhaa",
+      categoriesUnits: "Jamii na Vipimo",
       sales: "Mauzo",
       reports: "Ripoti",
       settings: "Mipangilio",
@@ -263,6 +269,8 @@ export const translations = {
     translation: {
       dashboard: "Tableau de bord",
       products: "Produits",
+      inventoryOrders: "Commandes de Stock",
+      categoriesUnits: "Catégories & Unités",
       sales: "Ventes",
       reports: "Rapports",
       settings: "Paramètres",

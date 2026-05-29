@@ -19,6 +19,7 @@ const defaultForm = {
   lowStockThreshold: "10",
   category: "other",
   unitType: "pieces",
+  productImageUrl: "",
 };
 
 export default function Products() {
@@ -36,10 +37,48 @@ export default function Products() {
   const [lookupLoading, setLookupLoading] = useState(false);
   const [autoSaveActive, setAutoSaveActive] = useState(false);
   const autoSaveTimerRef = useRef(null);
+  const [categoriesList, setCategoriesList] = useState([]);
+  const [unitTypesList, setUnitTypesList] = useState([]);
 
   useEffect(() => {
     loadProducts();
+    loadCategoriesAndUnits();
   }, []);
+
+  const loadCategoriesAndUnits = async () => {
+    try {
+      const [catsRes, unitsRes] = await Promise.all([
+        api.get("/categories"),
+        api.get("/unit-types"),
+      ]);
+      setCategoriesList(catsRes.data);
+      setUnitTypesList(unitsRes.data);
+    } catch (err) {
+      console.error("Failed to load custom categories or units");
+    }
+  };
+
+  const displayCategories = categoriesList.length > 0 
+    ? categoriesList.map(c => ({ name: c.name, _id: c._id }))
+    : [
+        { name: 'food' },
+        { name: 'electronics' },
+        { name: 'clothing' },
+        { name: 'household' },
+        { name: 'other' }
+      ];
+
+  const displayUnitTypes = unitTypesList.length > 0
+    ? unitTypesList.map(u => ({ name: u.name, _id: u._id }))
+    : [
+        { name: 'pieces' },
+        { name: 'box' },
+        { name: 'kg' },
+        { name: 'whole sack' },
+        { name: 'liter' },
+        { name: 'meter' },
+        { name: 'pack' }
+      ];
 
   // Auto-save form to localStorage with debounce
   useEffect(() => {
@@ -85,16 +124,9 @@ export default function Products() {
     setEditItem(product);
     setForm({
       productName: product.productName,
-      barcode: product.barcode || "",
-      costPrice: product.costPrice,
-      sellingPrice: product.sellingPrice,
-      quantity: product.stock || "",
-      expirationDate: product.expirationDate
-        ? new Date(product.expirationDate).toISOString().split("T")[0]
-        : "",
-      lowStockThreshold: product.lowStockThreshold?.toString() || "10",
       category: product.category || "other",
       unitType: product.unitType || "pieces",
+      productImageUrl: product.productImageUrl || "",
     });
     setErrors({});
     setAutoSaveActive(true);
@@ -115,36 +147,6 @@ export default function Products() {
     // Product name validation
     if (!form.productName || form.productName.trim() === "") {
       errs.productName = "Product name required";
-    }
-    if (form.barcode && !form.barcode.trim()) {
-      errs.barcode = "Barcode is invalid";
-    }
-
-    // Price validations
-    const costPriceNum = parseFloat(form.costPrice);
-    const sellingPriceNum = parseFloat(form.sellingPrice);
-
-    if (!form.costPrice || isNaN(costPriceNum) || costPriceNum <= 0) {
-      errs.costPrice = "Enter valid cost price";
-    }
-
-    if (!form.sellingPrice || isNaN(sellingPriceNum) || sellingPriceNum <= 0) {
-      errs.sellingPrice = "Enter valid selling price";
-    }
-
-    if (sellingPriceNum <= costPriceNum) {
-      errs.sellingPrice = "Selling price must be higher than cost price";
-    }
-
-    // Quantity validation
-    const quantityNum = parseInt(form.quantity);
-    if (!form.quantity || isNaN(quantityNum) || quantityNum < 0) {
-      errs.quantity = "Quantity must be a non-negative number";
-    }
-
-    // Expiration date validation (only for food)
-    if (form.category === "food" && !form.expirationDate) {
-      errs.expirationDate = "Expiration date required for food items";
     }
 
     setErrors(errs);
@@ -207,6 +209,7 @@ export default function Products() {
             product.lowStockThreshold?.toString() || prev.lowStockThreshold,
           category: product.category || prev.category,
           unitType: product.unitType || prev.unitType,
+          productImageUrl: product.productImageUrl || prev.productImageUrl || "",
           expirationDate: product.expirationDate
             ? new Date(product.expirationDate).toISOString().split("T")[0]
             : prev.expirationDate,
@@ -239,12 +242,10 @@ export default function Products() {
     setSaving(true);
     try {
       const payload = {
-        ...form,
-        stock: form.quantity,
-        barcode: form.barcode?.trim() || undefined,
-        expirationDate:
-          form.category === "food" ? form.expirationDate : undefined,
+        productName: form.productName.trim(),
+        category: form.category,
         unitType: form.unitType,
+        productImageUrl: form.productImageUrl?.trim() || undefined,
       };
 
       if (editItem) {
@@ -375,9 +376,26 @@ export default function Products() {
               style={{ animationDelay: `${i * 50}ms` }}
             >
               <div className={styles.productHeader}>
-                <div className={styles.productEmoji}>
-                  {categoryEmoji(product.category)}
-                </div>
+                {product.productImageUrl ? (
+                  <img 
+                    src={product.productImageUrl} 
+                    alt={product.productName} 
+                    style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '8px',
+                      objectFit: 'cover'
+                    }}
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <div className={styles.productEmoji}>
+                    {categoryEmoji(product.category)}
+                  </div>
+                )}
                 <div className={styles.productActions}>
                   <button
                     className="btn btn-ghost btn-icon btn-sm"
@@ -401,128 +419,8 @@ export default function Products() {
                 {t(product.category || "other")}
               </span>
 
-              <div className={styles.priceRow}>
-                <div className={styles.priceItem}>
-                  <span className={styles.priceLabel}>Cost</span>
-                  <span
-                    className={styles.priceValue}
-                    style={{ color: "var(--text-muted)" }}
-                  >
-                    {formatCurrency(product.costPrice)}
-                  </span>
-                </div>
-                <div className={styles.priceDivider}>→</div>
-                <div className={styles.priceItem}>
-                  <span className={styles.priceLabel}>Sell</span>
-                  <span className={styles.priceValue}>
-                    {formatCurrency(product.sellingPrice)}
-                  </span>
-                </div>
-              </div>
-
-              <div className={styles.profitRow}>
-                <div>
-                  <p
-                    style={{
-                      fontSize: 12,
-                      color: "var(--text-muted)",
-                      fontWeight: 600,
-                    }}
-                  >
-                    PROFIT/UNIT
-                  </p>
-                  <p
-                    className="profit-text"
-                    style={{ fontSize: 18, fontWeight: 800 }}
-                  >
-                    +
-                    {formatCurrency(
-                      profit(product.costPrice, product.sellingPrice),
-                    )}
-                  </p>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <p
-                    style={{
-                      fontSize: 12,
-                      color: "var(--text-muted)",
-                      fontWeight: 600,
-                    }}
-                  >
-                    MARGIN
-                  </p>
-                  <p
-                    style={{
-                      fontSize: 18,
-                      fontWeight: 800,
-                      color: "var(--green-primary)",
-                    }}
-                  >
-                    {margin(product.costPrice, product.sellingPrice)}%
-                  </p>
-                </div>
-              </div>
-
-              <div
-                style={{
-                  marginTop: 12,
-                  paddingTop: 12,
-                  borderTop: "1px solid var(--border)",
-                }}
-              >
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 12,
-                    fontSize: 13,
-                  }}
-                >
-                  <div>
-                    <span
-                      style={{ color: "var(--text-muted)", fontWeight: 600 }}
-                    >
-                      Stock:
-                    </span>
-                    <span
-                      style={{
-                        marginLeft: 4,
-                        color:
-                          product.stock <= product.lowStockThreshold
-                            ? "var(--red)"
-                            : "var(--text)",
-                      }}
-                    >
-                      {product.stock || 0}
-                    </span>
-                    {product.stock <= product.lowStockThreshold && (
-                      <span
-                        style={{
-                          marginLeft: 4,
-                          color: "var(--red)",
-                          fontSize: "11px",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 2
-                        }}
-                      >
-                        <AlertTriangle size={12} /> Low
-                      </span>
-                    )}
-                  </div>
-                  <div>
-                    <span
-                      style={{ color: "var(--text-muted)", fontWeight: 600 }}
-                    >
-                      Expires:
-                    </span>
-                    <span style={{ marginLeft: 4 }}>
-                      {product.expirationDate
-                        ? new Date(product.expirationDate).toLocaleDateString()
-                        : "N/A"}
-                    </span>
-                  </div>
-                </div>
+              <div style={{ marginTop: 'auto', paddingTop: 12, borderTop: '1px solid var(--border)', fontSize: 13, color: 'var(--text-muted)' }}>
+                <span>Unit Type: <strong>{product.unitType || 'pieces'}</strong></span>
               </div>
             </div>
           ))}
@@ -564,46 +462,6 @@ export default function Products() {
               onSubmit={handleSave}
               style={{ display: "flex", flexDirection: "column", gap: 18 }}
             >
-              {!editItem && (
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 10,
-                    alignItems: "center",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => setShowScanner(true)}
-                  >
-                    Scan Product
-                  </button>
-                  {form.barcode && (
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
-                      onClick={() => setShowScanner(true)}
-                    >
-                      Scan Again
-                    </button>
-                  )}
-                  {lookupLoading && (
-                    <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
-                      Looking up product...
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {showScanner && (
-                <BarcodeScanner
-                  onDetected={handleBarcodeDetected}
-                  onClose={() => setShowScanner(false)}
-                />
-              )}
-
               <div className="form-group">
                 <label className="form-label" htmlFor="product-name">
                   {t("productName")}
@@ -636,29 +494,6 @@ export default function Products() {
               </div>
 
               <div className="form-group">
-                <label className="form-label" htmlFor="barcode">
-                  Barcode
-                </label>
-                <input
-                  id="barcode"
-                  className={`form-input ${errors.barcode ? "error" : ""}`}
-                  placeholder="Scan or enter barcode"
-                  value={form.barcode}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, barcode: e.target.value }))
-                  }
-                  aria-describedby={
-                    errors.barcode ? "barcode-error" : undefined
-                  }
-                />
-                {errors.barcode && (
-                  <span id="barcode-error" className="form-error" role="alert">
-                    {errors.barcode}
-                  </span>
-                )}
-              </div>
-
-              <div className="form-group">
                 <label className="form-label">{t("category")}</label>
                 <select
                   className="form-input"
@@ -667,14 +502,12 @@ export default function Products() {
                     setForm((prev) => ({
                       ...prev,
                       category: e.target.value,
-                      expirationDate:
-                        e.target.value === "food" ? prev.expirationDate : "",
                     }))
                   }
                 >
-                  {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>
-                      {categoryEmoji(c)} {t(c)}
+                  {displayCategories.map((c) => (
+                    <option key={c._id || c.name} value={c.name}>
+                      {categoryEmoji(c.name.toLowerCase())} {t(c.name) || c.name}
                     </option>
                   ))}
                 </select>
@@ -692,168 +525,31 @@ export default function Products() {
                     }))
                   }
                 >
-                  {UNIT_TYPES.map((u) => (
-                    <option key={u} value={u}>
-                      {u.charAt(0).toUpperCase() + u.slice(1)}
+                  {displayUnitTypes.map((u) => (
+                    <option key={u._id || u.name} value={u.name}>
+                      {u.name.charAt(0).toUpperCase() + u.name.slice(1)}
                     </option>
                   ))}
                 </select>
               </div>
 
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 16,
-                }}
-              >
-                <div className="form-group">
-                  <label className="form-label">{t("costPrice")} (RWF)</label>
-                  <input
-                    className={`form-input ${errors.costPrice ? "error" : ""}`}
-                    type="number"
-                    placeholder="0"
-                    min="0"
-                    value={form.costPrice}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        costPrice: e.target.value,
-                      }))
-                    }
-                  />
-                  {errors.costPrice && (
-                    <span className="form-error">{errors.costPrice}</span>
-                  )}
-                </div>
-                <div className="form-group">
-                  <label className="form-label">
-                    {t("sellingPrice")} (RWF)
-                  </label>
-                  <input
-                    className={`form-input ${errors.sellingPrice ? "error" : ""}`}
-                    type="number"
-                    placeholder="0"
-                    min="0"
-                    value={form.sellingPrice}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        sellingPrice: e.target.value,
-                      }))
-                    }
-                  />
-                  {errors.sellingPrice && (
-                    <span className="form-error">{errors.sellingPrice}</span>
-                  )}
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Stock</label>
-                  <input
-                    className={`form-input ${errors.quantity ? "error" : ""}`}
-                    type="number"
-                    placeholder="0"
-                    min="0"
-                    value={form.quantity}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, quantity: e.target.value }))
-                    }
-                  />
-                  {errors.quantity && (
-                    <span className="form-error">{errors.quantity}</span>
-                  )}
-                </div>
-                {form.category === "food" && (
-                  <div className="form-group">
-                    <label className="form-label">
-                      Expiration Date{" "}
-                      <span style={{ color: "var(--red)" }}>*</span>
-                    </label>
-                    <input
-                      className={`form-input ${errors.expirationDate ? "error" : ""}`}
-                      type="date"
-                      value={form.expirationDate}
-                      onChange={(e) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          expirationDate: e.target.value,
-                        }))
-                      }
-                    />
-                    {errors.expirationDate && (
-                      <span className="form-error">
-                        {errors.expirationDate}
-                      </span>
-                    )}
-                  </div>
-                )}
-                <div className="form-group">
-                  <label className="form-label">Low Stock Threshold</label>
-                  <input
-                    className="form-input"
-                    type="number"
-                    placeholder="10"
-                    min="0"
-                    value={form.lowStockThreshold || ""}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        lowStockThreshold: e.target.value,
-                      }))
-                    }
-                  />
-                  <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                    Alert when stock reaches this level
-                  </span>
-                </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="product-image-url">
+                  Product Image URL (Optional)
+                </label>
+                <input
+                  id="product-image-url"
+                  className="form-input"
+                  placeholder="https://example.com/image.jpg"
+                  value={form.productImageUrl || ""}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      productImageUrl: e.target.value,
+                    }))
+                  }
+                />
               </div>
-
-              {/* Live profit preview */}
-              {form.costPrice &&
-                form.sellingPrice &&
-                Number(form.sellingPrice) > Number(form.costPrice) && (
-                  <div
-                    style={{
-                      padding: "14px 16px",
-                      background: "var(--green-50)",
-                      border: "1px solid var(--green-200)",
-                      borderRadius: "var(--radius-md)",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                    }}
-                  >
-                    <span style={{ fontSize: 20 }}><DollarSign size={20} /></span>
-                    <div>
-                      <p
-                        style={{
-                          fontSize: 12,
-                          color: "var(--green-dark)",
-                          fontWeight: 600,
-                        }}
-                      >
-                        PROFIT PER UNIT
-                      </p>
-                      <p className="profit-text" style={{ fontSize: 20 }}>
-                        +{formatCurrency(form.sellingPrice - form.costPrice)}
-                      </p>
-                    </div>
-                    <div style={{ marginLeft: "auto", textAlign: "right" }}>
-                      <p
-                        style={{
-                          fontSize: 12,
-                          color: "var(--green-dark)",
-                          fontWeight: 600,
-                        }}
-                      >
-                        MARGIN
-                      </p>
-                      <p className="profit-text" style={{ fontSize: 20 }}>
-                        {margin(form.costPrice, form.sellingPrice)}%
-                      </p>
-                    </div>
-                  </div>
-                )}
 
               <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
                 <button

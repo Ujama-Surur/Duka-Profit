@@ -187,6 +187,9 @@ app.use("/api/license", require("./routes/license"));
 app.use("/api/users", require("./routes/users"));
 app.use("/api/notifications", require("./routes/notifications"));
 app.use("/api/scanner", require("./routes/scanner"));
+app.use("/api/orders", require("./routes/orders"));
+app.use("/api/categories", require("./routes/categories"));
+app.use("/api/unit-types", require("./routes/unit-types"));
 
 // Serve frontend in production
 if (process.env.NODE_ENV === "production") {
