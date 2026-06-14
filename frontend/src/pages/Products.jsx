@@ -127,6 +127,7 @@ export default function Products() {
       category: product.category || "other",
       unitType: product.unitType || "pieces",
       productImageUrl: product.productImageUrl || "",
+      lowStockThreshold: product.lowStockThreshold?.toString() || "10",
     });
     setErrors({});
     setAutoSaveActive(true);
@@ -147,6 +148,13 @@ export default function Products() {
     // Product name validation
     if (!form.productName || form.productName.trim() === "") {
       errs.productName = "Product name required";
+    }
+
+    if (form.lowStockThreshold !== undefined && form.lowStockThreshold !== "") {
+      const threshold = parseInt(form.lowStockThreshold, 10);
+      if (isNaN(threshold) || threshold < 0) {
+        errs.lowStockThreshold = "Must be a non-negative integer";
+      }
     }
 
     setErrors(errs);
@@ -246,6 +254,7 @@ export default function Products() {
         category: form.category,
         unitType: form.unitType,
         productImageUrl: form.productImageUrl?.trim() || undefined,
+        lowStockThreshold: form.lowStockThreshold ? parseInt(form.lowStockThreshold, 10) : 10,
       };
 
       if (editItem) {
@@ -419,8 +428,9 @@ export default function Products() {
                 {t(product.category || "other")}
               </span>
 
-              <div style={{ marginTop: 'auto', paddingTop: 12, borderTop: '1px solid var(--border)', fontSize: 13, color: 'var(--text-muted)' }}>
+              <div style={{ marginTop: 'auto', paddingTop: 12, borderTop: '1px solid var(--border)', fontSize: 13, color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <span>Unit Type: <strong>{product.unitType || 'pieces'}</strong></span>
+                <span>Low Stock Threshold: <strong>{product.lowStockThreshold ?? 10}</strong></span>
               </div>
             </div>
           ))}
@@ -531,6 +541,35 @@ export default function Products() {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="low-stock-threshold">
+                  Low Stock Threshold
+                </label>
+                <input
+                  id="low-stock-threshold"
+                  type="number"
+                  min="0"
+                  className={`form-input ${errors.lowStockThreshold ? "error" : ""}`}
+                  placeholder="e.g. 10"
+                  value={form.lowStockThreshold}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      lowStockThreshold: e.target.value,
+                    }))
+                  }
+                />
+                {errors.lowStockThreshold && (
+                  <span
+                    id="low-stock-threshold-error"
+                    className="form-error"
+                    role="alert"
+                  >
+                    {errors.lowStockThreshold}
+                  </span>
+                )}
               </div>
 
               <div className="form-group">

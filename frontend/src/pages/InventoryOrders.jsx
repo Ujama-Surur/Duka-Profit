@@ -102,7 +102,7 @@ export default function InventoryOrders() {
       {
         product: product._id,
         productName: product.productName,
-        quantity: 1,
+        quantity: 0,
         buyingPrice: product.costPrice || 0,
         sellingPrice: product.sellingPrice || 0,
         barcode: product.barcode || '',
@@ -133,7 +133,8 @@ export default function InventoryOrders() {
 
     // Basic validation
     for (const item of orderItems) {
-      if (item.quantity <= 0) {
+      const qty = parseInt(item.quantity, 10) || 0;
+      if (qty <= 0) {
         toast.error(`Invalid quantity for ${item.productName}`);
         return;
       }
@@ -701,8 +702,11 @@ export default function InventoryOrders() {
                               type="number"
                               className={styles.orderItemInput}
                               value={item.quantity}
-                              min="1"
-                              onChange={e => handleUpdateItem(index, 'quantity', parseInt(e.target.value) || 1)}
+                              min="0"
+                              onChange={e => {
+                                const val = e.target.value;
+                                handleUpdateItem(index, 'quantity', val === '' ? '' : (parseInt(val, 10) || 0));
+                              }}
                             />
                           </td>
                           <td>
