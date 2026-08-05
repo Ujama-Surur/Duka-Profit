@@ -28,6 +28,7 @@ const NAV_ITEMS = [
   { path: '/products', icon: <Package size={20} />, key: 'products' },
   { path: '/import-products', icon: <Download size={20} />, key: 'importProducts' },
   { path: '/reports', icon: <BarChart2 size={20} />, key: 'reports' },
+  { path: '/daily-report', icon: <BarChart2 size={20} />, key: 'dailyCashReport' },
   { path: '/admin', icon: <Lock size={20} />, key: 'admin', adminOnly: true },
   { path: '/settings', icon: <Settings size={20} />, key: 'settings' },
 ];

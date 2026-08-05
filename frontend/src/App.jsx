@@ -29,6 +29,7 @@ const StockIn = lazy(() => import("./pages/StockIn"));
 const Checkout = lazy(() => import("./pages/Checkout"));
 const RemoteScanner = lazy(() => import("./pages/RemoteScanner"));
 const Reports = lazy(() => import("./pages/Reports"));
+const DailyReport = lazy(() => import("./pages/DailyReport"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Admin = lazy(() => import("./pages/Admin"));
 const InventoryOrders = lazy(() => import("./pages/InventoryOrders"));
@@ -207,6 +208,7 @@ export default function App() {
                   </PremiumRoute>
                 } />
                 <Route path="/reports" element={<Reports />} />
+                <Route path="/daily-report" element={<DailyReport />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route
                   path="/admin"
