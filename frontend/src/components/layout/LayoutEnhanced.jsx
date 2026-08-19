@@ -20,7 +20,8 @@ import {
   FileText,
   Layers,
   Archive,
-  DollarSign
+  DollarSign,
+  ClipboardList
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -35,6 +36,7 @@ const NAV_ITEMS = [
   { path: '/categories-units', icon: <Layers size={20} />, key: 'categoriesUnits' },
   { path: '/import-products', icon: <Download size={20} />, key: 'importProducts' },
   { path: '/reports', icon: <BarChart2 size={20} />, key: 'reports' },
+  { path: '/daily-report', icon: <ClipboardList size={20} />, key: 'dailyCashReport' },
   { path: '/admin', icon: <Lock size={20} />, key: 'admin', adminOnly: true },
   { path: '/settings', icon: <Settings size={20} />, key: 'settings' },
 ];

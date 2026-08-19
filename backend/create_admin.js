@@ -5,12 +5,17 @@ const mongoose = require('mongoose');
 const User = require('./models/User');
 
 async function createAdmin() {
-  const email = process.argv[2];
-  const password = process.argv[3];
-  const name = process.argv[4] || 'Admin User';
+  const email = 'aimecol314@gmail.com';
+  const password = '123456';
+  const name = 'Admin User';
   
   if (!email || !password) {
     console.error('Usage: node create_admin.js <email> <password> ["Name"]');
+    process.exit(1);
+  }
+
+  if (password.length < 6) {
+    console.error('Password must be at least 6 characters long.');
     process.exit(1);
   }
 

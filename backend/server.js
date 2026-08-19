@@ -191,6 +191,7 @@ app.use("/api/orders", require("./routes/orders"));
 app.use("/api/categories", require("./routes/categories"));
 app.use("/api/unit-types", require("./routes/unit-types"));
 app.use("/api/transactions", require("./routes/transactions"));
+app.use("/api/daily-reports", require("./routes/daily-reports"));
 
 // Serve frontend in production
 if (process.env.NODE_ENV === "production") {
