@@ -24,21 +24,45 @@ import {
   ClipboardList
 } from 'lucide-react';
 
-const NAV_ITEMS = [
-  { path: '/dashboard', icon: <TrendingUp size={20} />, key: 'dashboard' },
-  { path: '/stock-in', icon: <PlusSquare size={20} />, key: 'stockIn', premiumOnly: true },
-  { path: '/checkout', icon: <ShoppingCart size={20} />, key: 'checkout', premiumOnly: true },
-  { path: '/sales', icon: <Receipt size={20} />, key: 'sales' },
-  { path: '/products', icon: <Package size={20} />, key: 'products' },
-  { path: '/stock', icon: <Archive size={20} />, key: 'stock' },
-  { path: '/finance', icon: <DollarSign size={20} />, key: 'finance' },
-  { path: '/inventory-orders', icon: <FileText size={20} />, key: 'inventoryOrders' },
-  { path: '/categories-units', icon: <Layers size={20} />, key: 'categoriesUnits' },
-  { path: '/import-products', icon: <Download size={20} />, key: 'importProducts' },
-  { path: '/reports', icon: <BarChart2 size={20} />, key: 'reports' },
-  { path: '/daily-report', icon: <ClipboardList size={20} />, key: 'dailyCashReport' },
-  { path: '/admin', icon: <Lock size={20} />, key: 'admin', adminOnly: true },
-  { path: '/settings', icon: <Settings size={20} />, key: 'settings' },
+const NAV_SECTIONS = [
+  {
+    title: 'Point of Sale',
+    key: 'pos',
+    items: [
+      { path: '/checkout', icon: <ShoppingCart size={19} />, key: 'checkout', premiumOnly: true, badge: 'POS' },
+      { path: '/stock-in', icon: <PlusSquare size={19} />, key: 'stockIn', premiumOnly: true },
+      { path: '/sales', icon: <Receipt size={19} />, key: 'sales' },
+    ]
+  },
+  {
+    title: 'Inventory',
+    key: 'inventory',
+    items: [
+      { path: '/products', icon: <Package size={19} />, key: 'products' },
+      { path: '/stock', icon: <Archive size={19} />, key: 'stock' },
+      { path: '/inventory-orders', icon: <FileText size={19} />, key: 'inventoryOrders' },
+      { path: '/categories-units', icon: <Layers size={19} />, key: 'categoriesUnits' },
+      { path: '/import-products', icon: <Download size={19} />, key: 'importProducts' },
+    ]
+  },
+  {
+    title: 'Financials & Reports',
+    key: 'analytics',
+    items: [
+      { path: '/dashboard', icon: <TrendingUp size={19} />, key: 'dashboard' },
+      { path: '/finance', icon: <DollarSign size={19} />, key: 'finance' },
+      { path: '/reports', icon: <BarChart2 size={19} />, key: 'reports' },
+      { path: '/daily-report', icon: <ClipboardList size={19} />, key: 'dailyCashReport' },
+    ]
+  },
+  {
+    title: 'Settings & Admin',
+    key: 'management',
+    items: [
+      { path: '/admin', icon: <Lock size={19} />, key: 'admin', adminOnly: true },
+      { path: '/settings', icon: <Settings size={19} />, key: 'settings' },
+    ]
+  }
 ];
 
 const LayoutEnhanced = () => {
@@ -52,6 +76,18 @@ const LayoutEnhanced = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   const hasPremiumAccess = user?.role === 'admin' || user?.licenseStatus === 'active';
+
+  // Global F2 keyboard shortcut to open POS checkout
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'F2') {
+        e.preventDefault();
+        navigate('/checkout');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [navigate]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -100,7 +136,7 @@ const LayoutEnhanced = () => {
     }
   };
 
-  const sidebarWidth = isMobile ? '280px' : (collapsed ? '72px' : '260px');
+  const sidebarWidth = isMobile ? '280px' : (collapsed ? '76px' : '260px');
 
   return (
     <div style={{
@@ -118,8 +154,8 @@ const LayoutEnhanced = () => {
         color: 'var(--text)',
         display: 'flex',
         flexDirection: 'column',
-        boxShadow: '4px 0 20px rgba(0,0,0,0.05)',
-        transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1), left 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        boxShadow: '2px 0 12px rgba(0,0,0,0.03)',
+        transition: 'width 0.25s cubic-bezier(0.16, 1, 0.3, 1), left 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
         position: isMobile ? 'fixed' : 'relative',
         left: isMobile ? (sidebarOpen ? '0' : '-280px') : '0',
         top: 0,
@@ -130,20 +166,21 @@ const LayoutEnhanced = () => {
       }}>
         {/* Sidebar Header */}
         <div style={{
-          padding: collapsed && !isMobile ? '24px 8px' : '24px 16px',
+          padding: collapsed && !isMobile ? '20px 8px' : '20px 18px',
           borderBottom: '1px solid var(--border)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: collapsed && !isMobile ? 'center' : 'flex-start',
           gap: '12px',
           height: '72px',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          background: '#FAFAFA'
         }}>
           <Logo size="small" />
           {(!collapsed || isMobile) && (
             <div style={{ transition: 'opacity 0.2s', opacity: 1, whiteSpace: 'nowrap' }}>
               <h1 style={{
-                fontSize: '18px',
+                fontSize: '17px',
                 fontWeight: '800',
                 margin: '0',
                 color: 'var(--text)',
@@ -155,100 +192,189 @@ const LayoutEnhanced = () => {
               <p style={{
                 fontSize: '11px',
                 margin: '0',
-                color: 'var(--text-muted)',
-                fontWeight: '500',
+                color: 'var(--green-primary)',
+                fontWeight: '700',
                 letterSpacing: '0.2px'
               }}>
-                Management System
+                Smart Retail POS
               </p>
             </div>
           )}
         </div>
 
-        {/* Navigation Links */}
+        {/* Navigation Sections */}
         <nav style={{
           flex: 1,
-          padding: collapsed && !isMobile ? '16px 8px' : '16px 12px',
+          padding: collapsed && !isMobile ? '12px 6px' : '14px 10px',
           overflowY: 'auto',
           overflowX: 'hidden'
         }}>
-          {NAV_ITEMS
-            .filter(item => !item.adminOnly || user?.role === 'admin')
-            .map(item => {
-              const isLocked = item.premiumOnly && !hasPremiumAccess;
-              return (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  title={collapsed && !isMobile ? t(item.key) : undefined}
-                  style={({ isActive }) => ({
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: collapsed && !isMobile ? 'center' : 'flex-start',
-                    gap: collapsed && !isMobile ? '0' : '12px',
-                    padding: collapsed && !isMobile ? '12px 0' : '12px 14px',
-                    borderRadius: '10px',
-                    color: isActive ? 'white' : 'var(--text)',
-                    background: isActive ? 'var(--green-primary)' : 'transparent',
-                    border: isActive ? '1px solid var(--green-primary)' : '1px solid transparent',
-                    textDecoration: 'none',
-                    fontSize: '13.5px',
-                    fontWeight: '500',
-                    transition: 'all 0.2s ease',
-                    marginBottom: '4px',
-                  })}
-                  onClick={() => isMobile && setSidebarOpen(false)}
-                >
-                  <span style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    width: '24px', 
-                    height: '24px',
-                    position: 'relative'
+          {NAV_SECTIONS.map((section, sIdx) => {
+            const filteredItems = section.items.filter(item => !item.adminOnly || user?.role === 'admin');
+            if (filteredItems.length === 0) return null;
+
+            return (
+              <div key={section.key} style={{ marginBottom: '14px' }}>
+                {(!collapsed || isMobile) && (
+                  <p style={{
+                    fontSize: '10.5px',
+                    fontWeight: '700',
+                    color: 'var(--text-light)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.07em',
+                    padding: '6px 12px 4px',
+                    margin: 0
                   }}>
-                    {item.icon}
-                    {isLocked && (
-                      <Lock size={10} style={{ 
-                        position: 'absolute', 
-                        bottom: -2, 
-                        right: -2, 
-                        color: 'var(--red)', 
-                        background: 'var(--bg-card)', 
-                        borderRadius: '50%', 
-                        padding: '1px',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-                      }} />
-                    )}
-                  </span>
-                  {(!collapsed || isMobile) && (
-                    <span style={{ 
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      width: '100%',
-                      transition: 'opacity 0.2s',
-                      opacity: 1
-                    }}>
-                      <span style={{ whiteSpace: 'nowrap' }}>{t(item.key)}</span>
-                      {isLocked && (
-                        <Lock size={13} style={{ opacity: 0.6, color: 'var(--red)', marginLeft: 8 }} />
+                    {section.title}
+                  </p>
+                )}
+                {collapsed && !isMobile && sIdx > 0 && (
+                  <div style={{ height: '1px', background: 'var(--border)', margin: '8px 8px' }} />
+                )}
+                {filteredItems.map(item => {
+                  const isLocked = item.premiumOnly && !hasPremiumAccess;
+                  return (
+                    <NavLink
+                      key={item.path}
+                      to={item.path}
+                      title={collapsed && !isMobile ? t(item.key) : undefined}
+                      style={({ isActive }) => ({
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: collapsed && !isMobile ? 'center' : 'flex-start',
+                        gap: collapsed && !isMobile ? '0' : '10px',
+                        padding: collapsed && !isMobile ? '10px 0' : '10px 12px',
+                        borderRadius: '10px',
+                        color: isActive ? 'white' : 'var(--text)',
+                        background: isActive ? 'linear-gradient(135deg, #10B981, #059669)' : 'transparent',
+                        boxShadow: isActive ? '0 4px 12px rgba(16, 185, 129, 0.28)' : 'none',
+                        textDecoration: 'none',
+                        fontSize: '13.5px',
+                        fontWeight: isActive ? '700' : '500',
+                        transition: 'all 0.18s ease',
+                        marginBottom: '3px',
+                        position: 'relative'
+                      })}
+                      onClick={() => isMobile && setSidebarOpen(false)}
+                    >
+                      <span style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        width: '24px', 
+                        height: '24px',
+                        position: 'relative'
+                      }}>
+                        {item.icon}
+                        {isLocked && (
+                          <Lock size={10} style={{ 
+                            position: 'absolute', 
+                            bottom: -2, 
+                            right: -2, 
+                            color: '#EF4444', 
+                            background: 'white', 
+                            borderRadius: '50%', 
+                            padding: '1px',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.15)'
+                          }} />
+                        )}
+                      </span>
+                      {(!collapsed || isMobile) && (
+                        <span style={{ 
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          width: '100%',
+                          transition: 'opacity 0.2s',
+                          opacity: 1
+                        }}>
+                          <span style={{ whiteSpace: 'nowrap' }}>{t(item.key)}</span>
+                          {item.badge && (
+                            <span style={{
+                              fontSize: '10px',
+                              fontWeight: '800',
+                              padding: '2px 6px',
+                              borderRadius: '6px',
+                              background: '#FEF3C7',
+                              color: '#B45309',
+                              marginLeft: '8px'
+                            }}>
+                              {item.badge}
+                            </span>
+                          )}
+                          {isLocked && (
+                            <Lock size={12} style={{ opacity: 0.6, color: '#EF4444', marginLeft: 8 }} />
+                          )}
+                        </span>
                       )}
-                    </span>
-                  )}
-                </NavLink>
-              );
-            })}
+                    </NavLink>
+                  );
+                })}
+              </div>
+            );
+          })}
         </nav>
 
-        {/* Sidebar Footer */}
+        {/* Sidebar Footer with User Profile */}
         <div style={{
-          padding: collapsed && !isMobile ? '16px 8px' : '16px 12px',
+          padding: collapsed && !isMobile ? '14px 6px' : '14px 12px',
           borderTop: '1px solid var(--border)',
           display: 'flex',
           flexDirection: 'column',
-          gap: '8px'
+          gap: '10px',
+          background: '#FAFAFA'
         }}>
+          {(!collapsed || isMobile) && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '6px 8px',
+              background: 'white',
+              borderRadius: '10px',
+              border: '1px solid var(--border)'
+            }}>
+              <div style={{
+                width: '34px',
+                height: '34px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #10B981, #059669)',
+                color: 'white',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: '700',
+                fontSize: '13px',
+                flexShrink: 0
+              }}>
+                {(user?.name || 'U').charAt(0).toUpperCase()}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  margin: 0,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  color: 'var(--text)'
+                }}>
+                  {user?.name || 'Store Merchant'}
+                </p>
+                <p style={{
+                  fontSize: '11px',
+                  margin: 0,
+                  color: 'var(--text-muted)',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
+                }}>
+                  {user?.email}
+                </p>
+              </div>
+            </div>
+          )}
+
           <button
             onClick={handleLogout}
             title={collapsed && !isMobile ? t('logout') : undefined}
@@ -256,31 +382,31 @@ const LayoutEnhanced = () => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: collapsed && !isMobile ? 'center' : 'flex-start',
-              gap: collapsed && !isMobile ? '0' : '12px',
-              padding: collapsed && !isMobile ? '12px 0' : '12px 14px',
-              background: '#ef4444',
-              border: 'none',
+              gap: collapsed && !isMobile ? '0' : '10px',
+              padding: collapsed && !isMobile ? '10px 0' : '10px 14px',
+              background: 'transparent',
+              border: '1px solid #FEE2E2',
               borderRadius: '10px',
-              color: 'white',
-              fontSize: '13.5px',
-              fontWeight: '500',
+              color: '#DC2626',
+              fontSize: '13px',
+              fontWeight: '600',
               cursor: 'pointer',
-              transition: 'all 0.2s ease',
+              transition: 'all 0.18s ease',
               width: '100%'
             }}
             onMouseOver={(e) => {
-              e.currentTarget.style.background = '#dc2626';
+              e.currentTarget.style.background = '#FEE2E2';
             }}
             onMouseOut={(e) => {
-              e.currentTarget.style.background = '#ef4444';
+              e.currentTarget.style.background = 'transparent';
             }}
           >
             <span style={{ 
               display: 'flex', 
               alignItems: 'center', 
               justifyContent: 'center',
-              width: '24px', 
-              height: '24px' 
+              width: '20px', 
+              height: '20px' 
             }}>
               <LogOut size={16} />
             </span>
@@ -309,11 +435,11 @@ const LayoutEnhanced = () => {
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '0 24px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
           zIndex: 10
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            {/* Hamburger Toggle Button (Next to it) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            {/* Hamburger Toggle Button */}
             <button
               onClick={toggleSidebar}
               style={{
@@ -326,29 +452,82 @@ const LayoutEnhanced = () => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: 'var(--text)',
-                transition: 'all 0.2s'
+                transition: 'all 0.15s ease'
               }}
               onMouseOver={(e) => e.currentTarget.style.background = 'var(--bg)'}
               onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+              title="Toggle sidebar"
             >
               <Menu size={20} />
             </button>
-            {/* Mobile-only Branding (Logo on left) */}
-            {isMobile && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Logo size="small" />
+
+            {/* Store branding */}
+            {isMobile ? (
+              <Logo size="small" />
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{
+                  fontSize: '15px',
+                  fontWeight: '700',
+                  color: 'var(--text)',
+                  fontFamily: 'var(--font-display)',
+                  letterSpacing: '-0.01em'
+                }}>
+                  {user?.storeName || 'Duka Store'}
+                </span>
+                <span className="badge badge-green" style={{ fontSize: '11px', padding: '3px 8px' }}>
+                  {user?.role === 'admin' ? 'Admin' : 'Store Owner'}
+                </span>
               </div>
             )}
-
-            
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            {!isOnline && (
-              <span className="badge badge-red" style={{ padding: '6px 12px', fontSize: '11px' }}>
-                Offline Mode
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            {/* Quick Sale / POS Button */}
+            <button
+              onClick={() => navigate('/checkout')}
+              className="btn btn-primary btn-sm"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontWeight: '700',
+                padding: '8px 14px',
+                borderRadius: '8px'
+              }}
+              title="Quick Sale POS (Press F2 from anywhere)"
+            >
+              <ShoppingCart size={16} />
+              <span style={{ display: isMobile ? 'none' : 'inline' }}>Quick Sale</span>
+              <kbd style={{
+                fontSize: '10px',
+                background: 'rgba(255,255,255,0.22)',
+                padding: '2px 5px',
+                borderRadius: '4px',
+                fontFamily: 'monospace',
+                fontWeight: '600'
+              }}>F2</kbd>
+            </button>
+
+            {/* Network status indicator */}
+            {isOnline ? (
+              <span className="badge" style={{
+                background: '#ECFDF5',
+                color: '#047857',
+                border: '1px solid #A7F3D0',
+                padding: '6px 10px',
+                gap: '6px'
+              }}>
+                <span className="pulse-green" />
+                <span style={{ display: isMobile ? 'none' : 'inline', fontSize: '11.5px' }}>Online</span>
+              </span>
+            ) : (
+              <span className="badge badge-red" style={{ padding: '6px 12px', fontSize: '11px', gap: '6px' }}>
+                <WifiOff size={13} />
+                <span>Offline</span>
               </span>
             )}
+
             <NotificationsSimple />
           </div>
         </header>

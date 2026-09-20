@@ -4,7 +4,11 @@ import { useTranslation } from "react-i18next";
 import BarcodeScanner from "../components/BarcodeScanner";
 import api, { formatCurrency, offlineData } from "../utils/api";
 import styles from "./Products.module.css";
-import { Package, Search, Trash2, Save, Utensils, Smartphone, Shirt, Home, DollarSign, WifiOff, Plus, Pencil, X, Info, AlertTriangle } from 'lucide-react';
+import { 
+  Package, Search, Trash2, Save, Utensils, Smartphone, Shirt, Home, 
+  DollarSign, WifiOff, Plus, Pencil, X, Info, AlertTriangle, 
+  TrendingUp, Boxes, Barcode, Camera, Calendar, Layers, CheckCircle2
+} from 'lucide-react';
 
 const CATEGORIES = ["food", "electronics", "clothing", "household", "other"];
 const UNIT_TYPES = ["pieces", "box", "kg", "whole sack", "liter", "meter", "pack"];
@@ -32,6 +36,7 @@ export default function Products() {
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [showScanner, setShowScanner] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);
@@ -53,7 +58,7 @@ export default function Products() {
       ]);
       setCategoriesList(catsRes.data);
       setUnitTypesList(unitsRes.data);
-    } catch (err) {
+    } catch {
       console.error("Failed to load custom categories or units");
     }
   };
@@ -91,7 +96,7 @@ export default function Products() {
           "duka_product_draft",
           JSON.stringify({ form, editItem }),
         );
-      } catch (e) {
+      } catch {
         // Silently fail if localStorage is full
       }
     }, 1000);
@@ -124,6 +129,13 @@ export default function Products() {
     setEditItem(product);
     setForm({
       productName: product.productName,
+      barcode: product.barcode || "",
+      costPrice: product.costPrice ? product.costPrice.toString() : "",
+      sellingPrice: product.sellingPrice ? product.sellingPrice.toString() : "",
+      quantity: (product.stock ?? product.quantity ?? 0).toString(),
+      expirationDate: product.expirationDate 
+        ? new Date(product.expirationDate).toISOString().split("T")[0] 
+        : "",
       category: product.category || "other",
       unitType: product.unitType || "pieces",
       productImageUrl: product.productImageUrl || "",
@@ -136,6 +148,7 @@ export default function Products() {
 
   const closeModal = () => {
     setShowModal(false);
+    setShowScanner(false);
     setAutoSaveActive(false);
     setForm(defaultForm);
     setErrors({});
@@ -145,9 +158,27 @@ export default function Products() {
   const validate = () => {
     const errs = {};
 
-    // Product name validation
     if (!form.productName || form.productName.trim() === "") {
-      errs.productName = "Product name required";
+      errs.productName = "Product name is required";
+    }
+
+    const cost = parseFloat(form.costPrice || 0);
+    const sell = parseFloat(form.sellingPrice || 0);
+
+    if (form.costPrice && (isNaN(cost) || cost < 0)) {
+      errs.costPrice = "Cost price must be 0 or higher";
+    }
+
+    if (form.sellingPrice && (isNaN(sell) || sell < 0)) {
+      errs.sellingPrice = "Selling price must be 0 or higher";
+    }
+
+    if (sell > 0 && sell <= cost) {
+      errs.sellingPrice = "Selling price must be higher than cost price";
+    }
+
+    if (form.category === "food" && !form.expirationDate && sell > 0) {
+      errs.expirationDate = "Expiration date is required for food items";
     }
 
     if (form.lowStockThreshold !== undefined && form.lowStockThreshold !== "") {
@@ -162,24 +193,15 @@ export default function Products() {
   };
 
   const validateBarcodeFormat = (barcode) => {
-    // Check if barcode is empty
     if (!barcode || barcode.trim().length === 0) {
       return { valid: false, message: "Barcode cannot be empty" };
     }
-
-    // Check barcode length (typical barcodes are 6-20 characters)
-    if (barcode.length < 6 || barcode.length > 20) {
+    if (barcode.length < 4 || barcode.length > 30) {
       return {
         valid: false,
-        message: "Barcode must be between 6-20 characters",
+        message: "Barcode must be between 4-30 characters",
       };
     }
-
-    // Check for invalid characters (should only contain alphanumeric and common barcode chars)
-    if (!/^[0-9A-Z-]*$/.test(barcode)) {
-      return { valid: false, message: "Barcode contains invalid characters" };
-    }
-
     return { valid: true };
   };
 
@@ -188,7 +210,6 @@ export default function Products() {
       .trim()
       .toUpperCase();
 
-    // Validate barcode format
     const validation = validateBarcodeFormat(barcode);
     if (!validation.valid) {
       toast.error(validation.message);
@@ -229,8 +250,6 @@ export default function Products() {
     } catch (err) {
       if (err.response?.status === 404) {
         toast("Product not found. Enter details and save.", { icon: <Info size={16} color="var(--green-primary)" /> });
-      } else if (err.code === "ECONNABORTED") {
-        toast.error("Barcode lookup timed out. Please try again.");
       } else {
         toast.error(err.response?.data?.message || "Failed to look up barcode");
       }
@@ -251,6 +270,12 @@ export default function Products() {
     try {
       const payload = {
         productName: form.productName.trim(),
+        barcode: form.barcode?.trim() || undefined,
+        costPrice: form.costPrice ? parseFloat(form.costPrice) : 0,
+        sellingPrice: form.sellingPrice ? parseFloat(form.sellingPrice) : 0,
+        quantity: form.quantity ? parseInt(form.quantity, 10) : 0,
+        stock: form.quantity ? parseInt(form.quantity, 10) : (editItem ? editItem.stock : 0),
+        expirationDate: form.expirationDate || undefined,
         category: form.category,
         unitType: form.unitType,
         productImageUrl: form.productImageUrl?.trim() || undefined,
@@ -265,7 +290,7 @@ export default function Products() {
         toast.success("Product updated!");
       } else {
         const { data } = await api.post("/products", payload);
-        setProducts((prev) => [...prev, data]);
+        setProducts((prev) => [data, ...prev]);
         toast.success("Product added!");
       }
       closeModal();
@@ -293,15 +318,24 @@ export default function Products() {
     }
   };
 
-  const profit = (cost, sell) => sell - cost;
+  const profit = (cost, sell) => (sell || 0) - (cost || 0);
   const margin = (cost, sell) =>
-    sell > 0 ? (((sell - cost) / sell) * 100).toFixed(1) : 0;
+    sell > 0 ? ((((sell || 0) - (cost || 0)) / sell) * 100).toFixed(1) : 0;
 
-  const filtered = products.filter(
-    (p) =>
+  // Filtered list based on search and category
+  const filtered = products.filter((p) => {
+    const matchesSearch = 
       p.productName.toLowerCase().includes(search.toLowerCase()) ||
-      (p.category || "").toLowerCase().includes(search.toLowerCase()),
-  );
+      (p.barcode || "").toLowerCase().includes(search.toLowerCase()) ||
+      (p.category || "").toLowerCase().includes(search.toLowerCase());
+    const matchesCategory = selectedCategory === "all" || p.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+
+  // Calculate metrics
+  const totalStock = products.reduce((sum, p) => sum + (p.stock || p.quantity || 0), 0);
+  const lowStockCount = products.filter((p) => (p.stock || 0) <= (p.lowStockThreshold ?? 10)).length;
+  const totalInventoryValue = products.reduce((sum, p) => sum + ((p.costPrice || 0) * (p.stock || p.quantity || 0)), 0);
 
   const categoryEmoji = (c) =>
     ({
@@ -312,8 +346,15 @@ export default function Products() {
       other: <Package size={16} />,
     })[c] || <Package size={16} />;
 
+  // Modal profit calculations
+  const modalCost = parseFloat(form.costPrice || 0);
+  const modalSell = parseFloat(form.sellingPrice || 0);
+  const modalProfit = modalSell - modalCost;
+  const modalMargin = modalSell > 0 ? ((modalProfit / modalSell) * 100).toFixed(1) : 0;
+
   return (
     <div className={styles.page}>
+      {/* Header */}
       <div className="page-header">
         <div
           style={{
@@ -321,35 +362,121 @@ export default function Products() {
             alignItems: "center",
             justifyContent: "space-between",
             flexWrap: "wrap",
-            gap: 12,
+            gap: 16,
           }}
         >
           <div>
-            <h1 className="page-title" style={{display:'flex',alignItems:'center',gap:8}}><Package size={24} /> {t("products")}</h1>
-            <p className="page-subtitle">
-              {products.length} products in your library
+            <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '24px', letterSpacing: '-0.02em' }}>
+              <Package size={26} style={{ color: 'var(--green-primary)' }} /> 
+              {t("products")}
+            </h1>
+            <p className="page-subtitle" style={{ fontSize: '13.5px', marginTop: 2 }}>
+              Manage your product catalog, pricing margins, stock alerts, and barcodes
             </p>
           </div>
-          <button className="btn btn-primary btn-lg" onClick={openAdd} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button 
+            className="btn btn-primary btn-lg" 
+            onClick={openAdd} 
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 8,
+              boxShadow: 'var(--shadow-green)',
+              fontWeight: 700
+            }}
+          >
             <Plus size={18} /> {t("addProduct")}
           </button>
         </div>
       </div>
 
-      {/* Search */}
-      <div className={styles.searchBar}>
-        <span className={styles.searchIcon}><Search size={18} /></span>
-        <input
-          className={styles.searchInput}
-          placeholder={`${t("search")} products...`}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        {search && (
-          <button className={styles.clearSearch} onClick={() => setSearch("")}>
-            ✕
+      {/* Stats Overview Bar */}
+      <div className={styles.statsGrid}>
+        <div className={styles.statCard}>
+          <div className={styles.statIcon} style={{ background: 'var(--green-50)', color: 'var(--green-primary)' }}>
+            <Package size={22} />
+          </div>
+          <div className={styles.statInfo}>
+            <span className={styles.statLabel}>Total Products</span>
+            <span className={styles.statValue}>{products.length}</span>
+          </div>
+        </div>
+
+        <div className={styles.statCard}>
+          <div className={styles.statIcon} style={{ background: '#EFF6FF', color: '#2563EB' }}>
+            <Boxes size={22} />
+          </div>
+          <div className={styles.statInfo}>
+            <span className={styles.statLabel}>Units in Stock</span>
+            <span className={styles.statValue}>{totalStock}</span>
+          </div>
+        </div>
+
+        <div className={styles.statCard}>
+          <div className={styles.statIcon} style={{ background: '#FFFBEB', color: '#D97706' }}>
+            <AlertTriangle size={22} />
+          </div>
+          <div className={styles.statInfo}>
+            <span className={styles.statLabel}>Low Stock Items</span>
+            <span className={styles.statValue} style={{ color: lowStockCount > 0 ? '#D97706' : 'inherit' }}>
+              {lowStockCount}
+            </span>
+          </div>
+        </div>
+
+        <div className={styles.statCard}>
+          <div className={styles.statIcon} style={{ background: '#F5F3FF', color: '#7C3AED' }}>
+            <TrendingUp size={22} />
+          </div>
+          <div className={styles.statInfo}>
+            <span className={styles.statLabel}>Inventory Value</span>
+            <span className={styles.statValue}>{formatCurrency(totalInventoryValue)}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Filter & Search Bar */}
+      <div className={styles.filterBar}>
+        <div className={styles.searchBar}>
+          <span className={styles.searchIcon}><Search size={18} /></span>
+          <input
+            className={styles.searchInput}
+            placeholder="Search by product name, barcode, or category..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          {search && (
+            <button className={styles.clearSearch} onClick={() => setSearch("")}>
+              ✕ Clear
+            </button>
+          )}
+        </div>
+
+        {/* Category Pills */}
+        <div className={styles.categoryPills}>
+          <button
+            type="button"
+            className={`${styles.categoryPill} ${selectedCategory === "all" ? styles.categoryPillActive : ""}`}
+            onClick={() => setSelectedCategory("all")}
+          >
+            All Products ({products.length})
           </button>
-        )}
+          {displayCategories.map((c) => {
+            const count = products.filter((p) => p.category === c.name).length;
+            return (
+              <button
+                key={c._id || c.name}
+                type="button"
+                className={`${styles.categoryPill} ${selectedCategory === c.name ? styles.categoryPillActive : ""}`}
+                onClick={() => setSelectedCategory(c.name)}
+              >
+                {categoryEmoji(c.name.toLowerCase())}
+                <span style={{ textTransform: 'capitalize' }}>{c.name}</span>
+                <span style={{ opacity: 0.7, fontSize: '11px' }}>({count})</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Products Grid */}
@@ -364,76 +491,140 @@ export default function Products() {
           <div className="spinner"></div>
         </div>
       ) : filtered.length === 0 ? (
-        <div className="card">
-          <div className="empty-state">
-            <div className="empty-icon"><Package size={48} /></div>
-            <h3 style={{ fontSize: 18, fontWeight: 700 }}>{t("noProducts")}</h3>
-            <p style={{ color: "var(--text-muted)", fontSize: 14 }}>
-              {t("addFirstProduct")}
-            </p>
-            <button className="btn btn-primary" onClick={openAdd}>
-              ＋ {t("addProduct")}
-            </button>
+        <div className="card" style={{ padding: '60px 24px', textAlign: 'center' }}>
+          <div style={{
+            width: '64px',
+            height: '64px',
+            borderRadius: '50%',
+            background: 'var(--bg-subtle)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 16px',
+            color: 'var(--text-light)'
+          }}>
+            <Package size={32} />
           </div>
+          <h3 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 6px' }}>{t("noProducts")}</h3>
+          <p style={{ color: "var(--text-muted)", fontSize: 14, margin: '0 0 16px' }}>
+            {search || selectedCategory !== "all" 
+              ? "No products match your current search or category filter." 
+              : t("addFirstProduct")}
+          </p>
+          <button className="btn btn-primary" onClick={openAdd}>
+            ＋ {t("addProduct")}
+          </button>
         </div>
       ) : (
         <div className={styles.grid}>
-          {filtered.map((product, i) => (
-            <div
-              key={product._id}
-              className={`${styles.productCard} animate-fade-in`}
-              style={{ animationDelay: `${i * 50}ms` }}
-            >
-              <div className={styles.productHeader}>
-                {product.productImageUrl ? (
-                  <img 
-                    src={product.productImageUrl} 
-                    alt={product.productName} 
-                    style={{
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '8px',
-                      objectFit: 'cover'
-                    }}
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.style.display = 'none';
-                    }}
-                  />
-                ) : (
-                  <div className={styles.productEmoji}>
-                    {categoryEmoji(product.category)}
+          {filtered.map((product, i) => {
+            const isOutOfStock = (product.stock ?? 0) === 0;
+            const isLowStock = !isOutOfStock && (product.stock ?? 0) <= (product.lowStockThreshold ?? 10);
+            const m = margin(product.costPrice, product.sellingPrice);
+
+            return (
+              <div
+                key={product._id}
+                className={styles.productCard}
+                style={{ animationDelay: `${i * 30}ms` }}
+              >
+                {/* Header: Avatar + Stock Badge + Actions */}
+                <div className={styles.productHeader}>
+                  <div className={styles.productAvatar}>
+                    {product.productImageUrl ? (
+                      <img 
+                        src={product.productImageUrl} 
+                        alt={product.productName} 
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      categoryEmoji(product.category)
+                    )}
                   </div>
-                )}
-                <div className={styles.productActions}>
-                  <button
-                    className="btn btn-ghost btn-icon btn-sm"
-                    onClick={() => openEdit(product)}
-                    title="Edit"
-                  >
-                    <Pencil size={16} />
-                  </button>
-                  <button
-                    className="btn btn-ghost btn-icon btn-sm"
-                    onClick={() => setConfirmDelete(product)}
-                    title="Delete"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {isOutOfStock ? (
+                      <span className="badge badge-red" style={{ fontSize: '11px', fontWeight: 800 }}>
+                        Out of stock
+                      </span>
+                    ) : isLowStock ? (
+                      <span className="badge badge-yellow" style={{ fontSize: '11px', fontWeight: 800 }}>
+                        Low: {product.stock} left
+                      </span>
+                    ) : (
+                      <span className="badge badge-green" style={{ fontSize: '11px', fontWeight: 700 }}>
+                        {product.stock} {product.unitType || 'in stock'}
+                      </span>
+                    )}
+
+                    <div className={styles.productActions}>
+                      <button
+                        className="btn btn-ghost btn-icon btn-sm"
+                        onClick={() => openEdit(product)}
+                        title="Edit product"
+                      >
+                        <Pencil size={15} />
+                      </button>
+                      <button
+                        className="btn btn-ghost btn-icon btn-sm"
+                        onClick={() => setConfirmDelete(product)}
+                        title="Delete product"
+                        style={{ color: '#EF4444' }}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Product Name */}
+                <h3 className={styles.productName} title={product.productName}>
+                  {product.productName}
+                </h3>
+
+                {/* Meta Row: Category & Unit */}
+                <div className={styles.metaRow}>
+                  <span className="badge badge-gray" style={{ fontSize: '11px', textTransform: 'capitalize' }}>
+                    {product.category || "other"}
+                  </span>
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    Unit: <strong>{product.unitType || 'pieces'}</strong>
+                  </span>
+                  {product.barcode && (
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                      <Barcode size={12} /> {product.barcode}
+                    </span>
+                  )}
+                </div>
+
+                {/* Pricing Box */}
+                <div className={styles.priceRow}>
+                  <div className={styles.priceItem}>
+                    <span className={styles.priceLabel}>Cost</span>
+                    <span className={styles.priceValue}>{formatCurrency(product.costPrice || 0)}</span>
+                  </div>
+                  <span className={styles.priceDivider}>/</span>
+                  <div className={styles.priceItem}>
+                    <span className={styles.priceLabel} style={{ color: 'var(--green-primary)' }}>Selling Price</span>
+                    <span className={styles.priceValue} style={{ color: 'var(--green-primary)', fontSize: '15px' }}>
+                      {formatCurrency(product.sellingPrice || 0)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Profit Margin & Stock Footer */}
+                <div className={styles.profitRow}>
+                  <span>Profit: <strong>+{formatCurrency(profit(product.costPrice, product.sellingPrice))}</strong></span>
+                  <span className={styles.marginPill}>
+                    +{m}% margin
+                  </span>
                 </div>
               </div>
-
-              <h3 className={styles.productName}>{product.productName}</h3>
-              <span className={`badge badge-gray`} style={{ marginBottom: 12 }}>
-                {t(product.category || "other")}
-              </span>
-
-              <div style={{ marginTop: 'auto', paddingTop: 12, borderTop: '1px solid var(--border)', fontSize: 13, color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span>Unit Type: <strong>{product.unitType || 'pieces'}</strong></span>
-                <span>Low Stock Threshold: <strong>{product.lowStockThreshold ?? 10}</strong></span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -446,16 +637,17 @@ export default function Products() {
           aria-modal="true"
           aria-labelledby="modal-title"
         >
-          <div className="modal" role="document" tabIndex="-1">
+          <div className="card" style={{ maxWidth: 540, width: '100%', margin: '40px auto', maxHeight: '90vh', overflowY: 'auto' }} role="document" tabIndex="-1">
             <div
               style={{
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                marginBottom: 24,
+                marginBottom: 20,
               }}
             >
-              <h2 id="modal-title" style={{ fontSize: 20, fontWeight: 800 }}>
+              <h2 id="modal-title" style={{ fontSize: 19, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Package size={20} style={{ color: 'var(--green-primary)' }} />
                 {editItem ? t("editProduct") : t("addProduct")}
               </h2>
               <button
@@ -470,16 +662,17 @@ export default function Products() {
 
             <form
               onSubmit={handleSave}
-              style={{ display: "flex", flexDirection: "column", gap: 18 }}
+              style={{ display: "flex", flexDirection: "column", gap: 16 }}
             >
+              {/* Product Name */}
               <div className="form-group">
                 <label className="form-label" htmlFor="product-name">
-                  {t("productName")}
+                  {t("productName")} *
                 </label>
                 <input
                   id="product-name"
-                  className={`form-input form-input-lg ${errors.productName ? "error" : ""}`}
-                  placeholder="e.g. Coca Cola 500ml"
+                  className={`form-input ${errors.productName ? "error" : ""}`}
+                  placeholder="e.g. Inyange Milk 500ml"
                   value={form.productName}
                   onChange={(e) =>
                     setForm((prev) => ({
@@ -488,90 +681,239 @@ export default function Products() {
                     }))
                   }
                   aria-required="true"
-                  aria-describedby={
-                    errors.productName ? "product-name-error" : undefined
-                  }
                 />
                 {errors.productName && (
-                  <span
-                    id="product-name-error"
-                    className="form-error"
-                    role="alert"
-                  >
+                  <span className="form-error" role="alert">
                     {errors.productName}
                   </span>
                 )}
               </div>
 
+              {/* Barcode with Scanner */}
               <div className="form-group">
-                <label className="form-label">{t("category")}</label>
-                <select
-                  className="form-input"
-                  value={form.category}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      category: e.target.value,
-                    }))
-                  }
-                >
-                  {displayCategories.map((c) => (
-                    <option key={c._id || c.name} value={c.name}>
-                      {categoryEmoji(c.name.toLowerCase())} {t(c.name) || c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Unit Type</label>
-                <select
-                  className="form-input"
-                  value={form.unitType}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      unitType: e.target.value,
-                    }))
-                  }
-                >
-                  {displayUnitTypes.map((u) => (
-                    <option key={u._id || u.name} value={u.name}>
-                      {u.name.charAt(0).toUpperCase() + u.name.slice(1)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label" htmlFor="low-stock-threshold">
-                  Low Stock Threshold
+                <label className="form-label" htmlFor="product-barcode">
+                  Barcode (Optional)
                 </label>
-                <input
-                  id="low-stock-threshold"
-                  type="number"
-                  min="0"
-                  className={`form-input ${errors.lowStockThreshold ? "error" : ""}`}
-                  placeholder="e.g. 10"
-                  value={form.lowStockThreshold}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      lowStockThreshold: e.target.value,
-                    }))
-                  }
-                />
-                {errors.lowStockThreshold && (
-                  <span
-                    id="low-stock-threshold-error"
-                    className="form-error"
-                    role="alert"
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    id="product-barcode"
+                    className="form-input"
+                    placeholder="Scan or type barcode..."
+                    value={form.barcode}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        barcode: e.target.value,
+                      }))
+                    }
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={() => setShowScanner(!showScanner)}
+                    title="Scan with camera"
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
                   >
-                    {errors.lowStockThreshold}
-                  </span>
+                    <Camera size={16} />
+                    <span>Scan</span>
+                  </button>
+                </div>
+                {showScanner && (
+                  <div style={{ marginTop: 10 }}>
+                    <BarcodeScanner
+                      onDetected={handleBarcodeDetected}
+                      onClose={() => setShowScanner(false)}
+                    />
+                  </div>
                 )}
               </div>
 
+              {/* Category & Unit Type (2 Columns) */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="form-group">
+                  <label className="form-label">{t("category")}</label>
+                  <select
+                    className="form-input"
+                    value={form.category}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        category: e.target.value,
+                      }))
+                    }
+                  >
+                    {displayCategories.map((c) => (
+                      <option key={c._id || c.name} value={c.name}>
+                        {c.name.charAt(0).toUpperCase() + c.name.slice(1)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Unit Type</label>
+                  <select
+                    className="form-input"
+                    value={form.unitType}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        unitType: e.target.value,
+                      }))
+                    }
+                  >
+                    {displayUnitTypes.map((u) => (
+                      <option key={u._id || u.name} value={u.name}>
+                        {u.name.charAt(0).toUpperCase() + u.name.slice(1)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Pricing (Cost & Selling Price) */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="cost-price">
+                    Cost Price (RWF)
+                  </label>
+                  <input
+                    id="cost-price"
+                    type="number"
+                    min="0"
+                    step="any"
+                    className={`form-input ${errors.costPrice ? "error" : ""}`}
+                    placeholder="e.g. 500"
+                    value={form.costPrice}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        costPrice: e.target.value,
+                      }))
+                    }
+                  />
+                  {errors.costPrice && (
+                    <span className="form-error" role="alert">{errors.costPrice}</span>
+                  )}
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label" htmlFor="selling-price">
+                    Selling Price (RWF)
+                  </label>
+                  <input
+                    id="selling-price"
+                    type="number"
+                    min="0"
+                    step="any"
+                    className={`form-input ${errors.sellingPrice ? "error" : ""}`}
+                    placeholder="e.g. 700"
+                    value={form.sellingPrice}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        sellingPrice: e.target.value,
+                      }))
+                    }
+                  />
+                  {errors.sellingPrice && (
+                    <span className="form-error" role="alert">{errors.sellingPrice}</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Real-time Profit Preview */}
+              {modalSell > 0 && (
+                <div className={styles.marginPreviewBox}>
+                  <div>
+                    <span style={{ fontSize: '11.5px', color: 'var(--green-dark)', fontWeight: 700, textTransform: 'uppercase' }}>
+                      Profit Per Unit
+                    </span>
+                    <p style={{ margin: '2px 0 0', fontWeight: 800, fontSize: '16px', color: 'var(--green-dark)' }}>
+                      +{formatCurrency(modalProfit)}
+                    </p>
+                  </div>
+                  <span className={styles.marginPill} style={{ fontSize: '13px', padding: '4px 12px' }}>
+                    +{modalMargin}% Margin
+                  </span>
+                </div>
+              )}
+
+              {/* Stock & Low Stock Threshold (2 Columns) */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="product-quantity">
+                    {editItem ? "Stock Quantity" : "Initial Stock"}
+                  </label>
+                  <input
+                    id="product-quantity"
+                    type="number"
+                    min="0"
+                    className="form-input"
+                    placeholder="e.g. 50"
+                    value={form.quantity}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        quantity: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label" htmlFor="low-stock-threshold">
+                    Low Stock Alert
+                  </label>
+                  <input
+                    id="low-stock-threshold"
+                    type="number"
+                    min="0"
+                    className={`form-input ${errors.lowStockThreshold ? "error" : ""}`}
+                    placeholder="e.g. 10"
+                    value={form.lowStockThreshold}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        lowStockThreshold: e.target.value,
+                      }))
+                    }
+                  />
+                  {errors.lowStockThreshold && (
+                    <span className="form-error" role="alert">
+                      {errors.lowStockThreshold}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Expiration Date (for Food Items) */}
+              {form.category === "food" && (
+                <div className="form-group">
+                  <label className="form-label" htmlFor="expiration-date">
+                    Expiration Date *
+                  </label>
+                  <input
+                    id="expiration-date"
+                    type="date"
+                    className={`form-input ${errors.expirationDate ? "error" : ""}`}
+                    value={form.expirationDate}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        expirationDate: e.target.value,
+                      }))
+                    }
+                  />
+                  {errors.expirationDate && (
+                    <span className="form-error" role="alert">
+                      {errors.expirationDate}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Product Image URL */}
               <div className="form-group">
                 <label className="form-label" htmlFor="product-image-url">
                   Product Image URL (Optional)
@@ -590,6 +932,7 @@ export default function Products() {
                 />
               </div>
 
+              {/* Modal Actions */}
               <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
                 <button
                   type="button"
@@ -602,8 +945,9 @@ export default function Products() {
                   type="submit"
                   className="btn btn-primary btn-full"
                   disabled={saving}
+                  style={{ fontWeight: 800, boxShadow: 'var(--shadow-green)' }}
                 >
-                  {saving ? "..." : `${t("save")}`}
+                  {saving ? "Saving..." : editItem ? "Update Product" : "Save Product"}
                 </button>
               </div>
             </form>
@@ -614,11 +958,23 @@ export default function Products() {
       {/* Delete confirm */}
       {confirmDelete && (
         <div className="modal-overlay">
-          <div className="modal" style={{ maxWidth: 400 }}>
+          <div className="card" style={{ maxWidth: 400, margin: '40px auto', padding: '24px' }}>
             <div style={{ textAlign: "center", marginBottom: 20 }}>
-              <div style={{ fontSize: 48, marginBottom: 12, color:'var(--red)' }}><Trash2 size={48} /></div>
-              <h3 style={{ fontSize: 20, fontWeight: 800 }}>Delete Product?</h3>
-              <p style={{ color: "var(--text-muted)", marginTop: 8 }}>
+              <div style={{ 
+                width: 56, 
+                height: 56, 
+                borderRadius: '50%', 
+                background: '#FEF2F2', 
+                color: '#DC2626', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                margin: '0 auto 14px' 
+              }}>
+                <Trash2 size={28} />
+              </div>
+              <h3 style={{ fontSize: 18, fontWeight: 800 }}>Delete Product?</h3>
+              <p style={{ color: "var(--text-muted)", marginTop: 8, fontSize: '13.5px' }}>
                 Are you sure you want to delete{" "}
                 <strong>{confirmDelete.productName}</strong>? This cannot be
                 undone.

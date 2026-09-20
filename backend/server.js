@@ -31,7 +31,7 @@ const connectedScanners = new Map();
 
 // Socket.IO middleware for validation
 io.use((socket, next) => {
-  const { deviceId, deviceName, type } = socket.handshake.auth;
+  const { deviceId, deviceName, type, userId } = socket.handshake.auth;
 
   // Validate scanner connection
   if (type === "scanner") {
@@ -42,29 +42,39 @@ io.use((socket, next) => {
     socket.deviceName = deviceName || "Unknown Device";
     socket.isScannerDevice = true;
   }
+  socket.userId = userId || null;
+  socket.clientType = type || "client";
   next();
 });
 
 io.on("connection", (socket) => {
-  // Get list of connected scanners (available to all clients)
+  const userRoom = socket.userId ? `merchant_${socket.userId}` : null;
+  if (userRoom) {
+    socket.join(userRoom);
+  }
+
+  // Get list of connected scanners (scoped to merchant room if userId is present)
   socket.on("scanner:list", () => {
-    const scanners = Array.from(connectedScanners.values()).map((s) => ({
-      deviceId: s.deviceId,
-      deviceName: s.deviceName,
-      connectedAt: s.connectedAt,
-      scanCount: s.scanCount,
-      lastScan: s.lastScan,
-    }));
+    const scanners = Array.from(connectedScanners.values())
+      .filter((s) => !socket.userId || s.userId === socket.userId)
+      .map((s) => ({
+        deviceId: s.deviceId,
+        deviceName: s.deviceName,
+        connectedAt: s.connectedAt,
+        scanCount: s.scanCount,
+        lastScan: s.lastScan,
+      }));
     socket.emit("scanner:list", scanners);
   });
 
   if (socket.isScannerDevice) {
     // Scanner device connects
     socket.on("scanner:connect", (data) => {
-      const { deviceId, deviceName, timestamp } = data;
+      const { deviceId, deviceName, timestamp } = data || {};
       const scannerInfo = {
         deviceId: socket.deviceId,
         deviceName: socket.deviceName,
+        userId: socket.userId,
         connectedAt: new Date(timestamp || Date.now()),
         socketId: socket.id,
         lastScan: null,
@@ -73,8 +83,12 @@ io.on("connection", (socket) => {
 
       connectedScanners.set(socket.id, scannerInfo);
 
-      // Notify all clients that scanner is ready
-      io.emit("scanner:connected", scannerInfo);
+      // Notify clients in the merchant room that scanner is ready
+      if (userRoom) {
+        io.to(userRoom).emit("scanner:connected", scannerInfo);
+      } else {
+        io.emit("scanner:connected", scannerInfo);
+      }
       socket.emit("scanner:ready", {
         message: "Scanner device connected and ready",
       });
@@ -82,7 +96,7 @@ io.on("connection", (socket) => {
 
     // Scanner sends barcode
     socket.on("scanner:barcode", (data) => {
-      const { barcode, deviceId, timestamp } = data;
+      const { barcode, deviceId, timestamp } = data || {};
       const scanner = connectedScanners.get(socket.id);
 
       if (scanner) {
@@ -90,38 +104,52 @@ io.on("connection", (socket) => {
         scanner.scanCount++;
       }
 
-      // Broadcast to all connected clients (main app)
-      io.emit("barcode:scanned", {
+      const scanPayload = {
         barcode,
         deviceId: socket.deviceId,
         deviceName: socket.deviceName,
         timestamp: new Date(timestamp || Date.now()),
-      });
+      };
+
+      // Broadcast to clients in merchant room
+      if (userRoom) {
+        io.to(userRoom).emit("barcode:scanned", scanPayload);
+      } else {
+        io.emit("barcode:scanned", scanPayload);
+      }
     });
 
     // Scanner disconnects
     socket.on("disconnect", () => {
       const scanner = connectedScanners.get(socket.id);
       if (scanner) {
-        io.emit("scanner:disconnected", {
+        const discPayload = {
           deviceId: scanner.deviceId,
           socketId: socket.id,
-        });
+        };
+        if (userRoom) {
+          io.to(userRoom).emit("scanner:disconnected", discPayload);
+        } else {
+          io.emit("scanner:disconnected", discPayload);
+        }
         connectedScanners.delete(socket.id);
       }
     });
-
-
 
     // Handle errors for scanner devices
     socket.on("error", (error) => {
       const scanner = connectedScanners.get(socket.id);
       if (scanner) {
-        io.emit("scanner:error", {
+        const errPayload = {
           deviceId: scanner.deviceId,
           error: error?.message || "Unknown error",
           timestamp: new Date(),
-        });
+        };
+        if (userRoom) {
+          io.to(userRoom).emit("scanner:error", errPayload);
+        } else {
+          io.emit("scanner:error", errPayload);
+        }
       }
     });
   }
@@ -176,7 +204,6 @@ if (process.env.NODE_ENV !== "test") {
 
 // Routes
 app.use("/api/auth", require("./routes/auth"));
-app.use("/api/auth-new", require("./routes/auth-new"));
 app.use("/api/admin", require("./routes/admin"));
 app.use("/api/admin-manage", require("./routes/admin-manage"));
 app.use("/api/products", require("./routes/products"));
@@ -266,15 +293,32 @@ function startServerWithPortRetry(startPort, retriesLeft) {
   });
 }
 
-mongoose
-  .connect(process.env.MONGODB_URI || "mongodb://localhost:27017/duka-profit")
-  .then(() => {
-    console.log("MongoDB connected");
-    startServerWithPortRetry(PORT, MAX_PORT_RETRIES);
-  })
-  .catch((err) => {
-    console.error("MongoDB connection error:", err.message);
-    process.exit(1);
+// Graceful shutdown
+const handleShutdown = async (signal) => {
+  console.log(`Received ${signal}, closing server gracefully...`);
+  server.close(() => {
+    console.log("HTTP server closed.");
+    mongoose.connection.close(false).then(() => {
+      console.log("MongoDB connection closed.");
+      process.exit(0);
+    });
   });
+};
+
+process.on("SIGTERM", () => handleShutdown("SIGTERM"));
+process.on("SIGINT", () => handleShutdown("SIGINT"));
+
+if (process.env.NODE_ENV !== "test") {
+  mongoose
+    .connect(process.env.MONGODB_URI || "mongodb://localhost:27017/duka-profit")
+    .then(() => {
+      console.log("MongoDB connected");
+      startServerWithPortRetry(PORT, MAX_PORT_RETRIES);
+    })
+    .catch((err) => {
+      console.error("MongoDB connection error:", err.message);
+      process.exit(1);
+    });
+}
 
 module.exports = app;

@@ -3,9 +3,11 @@ import { io } from 'socket.io-client';
 import QRCode from 'qrcode.react';
 import toast from 'react-hot-toast';
 import api from '../utils/api';
+import { useAuth } from '../context/AuthContext';
 import { Smartphone, QrCode } from 'lucide-react';
 
 export default function RemoteScannerPairing({ onBarcodeScanned }) {
+  const { user } = useAuth();
   const [showQR, setShowQR] = useState(false);
   const [qrCode, setQrCode] = useState('');
   const [connectedScanners, setConnectedScanners] = useState([]);
@@ -14,8 +16,13 @@ export default function RemoteScannerPairing({ onBarcodeScanned }) {
 
   useEffect(() => {
     // Connect to WebSocket server
-    const serverUrl =import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
-    const newSocket = io(serverUrl);
+    const serverUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+    const newSocket = io(serverUrl, {
+      auth: {
+        userId: user?._id || user?.id,
+        type: 'desktop',
+      },
+    });
 
     newSocket.on('connect', () => {
       console.log('Connected to scanner server');
@@ -52,7 +59,7 @@ export default function RemoteScannerPairing({ onBarcodeScanned }) {
     return () => {
       newSocket.disconnect();
     };
-  }, [onBarcodeScanned]);
+  }, [onBarcodeScanned, user?._id, user?.id]);
 
   const generateQRCode = async () => {
     setLoading(true);

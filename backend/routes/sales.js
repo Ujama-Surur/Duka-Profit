@@ -100,8 +100,10 @@ router.post('/', [
   body('quantity').isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
   validate,
 ], async (req, res) => {
+  let product = null;
+  const parsedQuantity = parseInt(req.body.quantity);
   try {
-    const { productId, quantity, paymentMethod = 'cash', customerName, customerPhone } = req.body;
+    const { productId, paymentMethod = 'cash', customerName, customerPhone } = req.body;
 
     if (!['cash', 'momo', 'card', 'bank', 'credit'].includes(paymentMethod)) {
       return res.status(400).json({ message: 'Invalid payment method.' });
@@ -111,16 +113,21 @@ router.post('/', [
       return res.status(400).json({ message: 'Customer name is required for credit sales.' });
     }
 
-    // Verify product belongs to user and check stock
-    const product = await Product.findOne({ _id: productId, userId: req.user._id, isActive: true });
-    if (!product) return res.status(404).json({ message: 'Product not found.' });
+    // Atomically decrement stock if sufficient stock exists
+    product = await Product.findOneAndUpdate(
+      { _id: productId, userId: req.user._id, isActive: true, stock: { $gte: parsedQuantity } },
+      { $inc: { stock: -parsedQuantity } },
+      { new: true }
+    );
 
-    // Validate stock availability
-    if (product.stock < quantity) {
+    if (!product) {
+      const existingProduct = await Product.findOne({ _id: productId, userId: req.user._id, isActive: true });
+      if (!existingProduct) return res.status(404).json({ message: 'Product not found.' });
+
       return res.status(400).json({ 
         message: 'Insufficient stock.',
-        availableStock: product.stock,
-        requestedQuantity: quantity
+        availableStock: existingProduct.stock,
+        requestedQuantity: parsedQuantity
       });
     }
 
@@ -128,7 +135,7 @@ router.post('/', [
     const sale = await Sale.create({
       userId: req.user._id,
       productId: product._id,
-      quantity: parseInt(quantity),
+      quantity: parsedQuantity,
       costPriceSnapshot: product.costPrice,
       sellingPriceSnapshot: product.sellingPrice,
       paymentMethod,
@@ -138,21 +145,16 @@ router.post('/', [
       revenue: 0,  // calculated in pre-save
     });
 
-    // Reduce product stock
-    await Product.findByIdAndUpdate(product._id, { 
-      $inc: { stock: -quantity } 
-    });
-
     const transactionDesc = paymentMethod === 'credit'
-      ? `Credit Sale of ${product.productName} (x${quantity}) to ${customerName}`
-      : `Sale of ${product.productName} (x${quantity}) [${paymentMethod.toUpperCase()}]`;
+      ? `Credit Sale of ${product.productName} (x${parsedQuantity}) to ${customerName}`
+      : `Sale of ${product.productName} (x${parsedQuantity}) [${paymentMethod.toUpperCase()}]`;
 
     // Create automatic Financial income transaction log
     const Transaction = require('../models/Transaction');
     await Transaction.create({
       userId: req.user._id,
       type: paymentMethod === 'credit' ? 'debit_waiting' : 'income',
-      amount: sale.revenue || (product.sellingPrice * quantity),
+      amount: sale.revenue || (product.sellingPrice * parsedQuantity),
       category: 'sales',
       source: 'sale',
       referenceId: sale._id,
@@ -168,9 +170,14 @@ router.post('/', [
     res.status(201).json({ 
       ...populated, 
       product: populated.productId,
-      remainingStock: product.stock - quantity
+      remainingStock: product.stock
     });
   } catch (err) {
+    if (product) {
+      await Product.findByIdAndUpdate(product._id, {
+        $inc: { stock: parsedQuantity }
+      }).catch(() => {});
+    }
     console.error('Sale error:', err);
     res.status(500).json({ message: 'Failed to record sale.' });
   }
@@ -184,42 +191,61 @@ router.post('/checkout', premiumOrAdmin, [
   body('paymentMethod').optional().isIn(['cash', 'momo', 'card', 'bank', 'credit']).withMessage('Invalid payment method'),
   validate,
  ], async (req, res) => {
+   const decrementedItems = [];
    try {
      const { items, paymentMethod = 'cash', customerName, customerPhone } = req.body;
 
      if (paymentMethod === 'credit' && (!customerName || !customerName.trim())) {
        return res.status(400).json({ message: 'Customer name is required for credit checkout.' });
      }
- 
-     // Verify all products and check stock
-     const productIds = items.map(item => item.productId);
-     const products = await Product.find({ _id: { $in: productIds }, userId: req.user._id, isActive: true });
-     
-     if (products.length !== productIds.length) {
-       return res.status(404).json({ message: 'One or more products not found.' });
-     }
- 
-     // Create product map for easy lookup
-     const productMap = {};
-     products.forEach(p => productMap[p._id.toString()] = p);
- 
-     // Validate stock for all items
+
+     // Atomically decrement stock item by item to prevent race conditions & overselling
+     let failureReason = null;
      for (const item of items) {
-       const product = productMap[item.productId];
-       if (product.stock < item.quantity) {
-         return res.status(400).json({ 
-           message: `Insufficient stock for ${product.productName}.`,
-           availableStock: product.stock,
-           requestedQuantity: item.quantity
-         });
+       const qty = parseInt(item.quantity);
+       const updatedProduct = await Product.findOneAndUpdate(
+         { _id: item.productId, userId: req.user._id, isActive: true, stock: { $gte: qty } },
+         { $inc: { stock: -qty } },
+         { new: true }
+       );
+
+       if (!updatedProduct) {
+         const existingProduct = await Product.findOne({ _id: item.productId, userId: req.user._id, isActive: true });
+         if (!existingProduct) {
+           failureReason = { status: 404, message: `Product ${item.productId} not found.` };
+         } else {
+           failureReason = {
+             status: 400,
+             message: `Insufficient stock for ${existingProduct.productName}.`,
+             availableStock: existingProduct.stock,
+             requestedQuantity: qty,
+           };
+         }
+         break;
        }
+
+       decrementedItems.push({
+         productId: item.productId,
+         quantity: qty,
+         product: updatedProduct,
+       });
      }
- 
-     // Calculate totals
+
+     // If any item failed stock verification, rollback previously decremented items
+     if (failureReason) {
+       for (const dec of decrementedItems) {
+         await Product.findByIdAndUpdate(dec.productId, {
+           $inc: { stock: dec.quantity }
+         }).catch(() => {});
+       }
+       return res.status(failureReason.status).json(failureReason);
+     }
+
+     // Calculate totals using the verified products
      let totalAmount = 0;
      let totalProfit = 0;
-     const saleItems = items.map(item => {
-       const product = productMap[item.productId];
+     const saleItems = decrementedItems.map(item => {
+       const product = item.product;
        const subtotal = product.sellingPrice * item.quantity;
        const profit = (product.sellingPrice - product.costPrice) * item.quantity;
        totalAmount += subtotal;
@@ -233,7 +259,7 @@ router.post('/checkout', premiumOrAdmin, [
          subtotal,
        };
      });
- 
+
      // Create sale record with all items
      const sale = await Sale.create({
        userId: req.user._id,
@@ -246,16 +272,7 @@ router.post('/checkout', premiumOrAdmin, [
        profit: totalProfit,
        revenue: totalAmount,
      });
- 
-     // Reduce stock for all products
-     const stockUpdates = items.map(item => ({
-       updateOne: {
-         filter: { _id: item.productId },
-         update: { $inc: { stock: -item.quantity } }
-       }
-     }));
-     await Product.bulkWrite(stockUpdates);
- 
+
      const transactionDesc = paymentMethod === 'credit'
        ? `Credit Checkout sale #${sale._id} (${saleItems.length} items) to ${customerName}`
        : `Checkout sale #${sale._id} (${saleItems.length} items) [${paymentMethod.toUpperCase()}]`;
@@ -275,6 +292,14 @@ router.post('/checkout', premiumOrAdmin, [
 
     res.status(201).json(sale);
   } catch (err) {
+    // Rollback stock for all decremented items if creation fails
+    if (decrementedItems.length > 0) {
+      for (const dec of decrementedItems) {
+        await Product.findByIdAndUpdate(dec.productId, {
+          $inc: { stock: dec.quantity }
+        }).catch(() => {});
+      }
+    }
     console.error('Checkout error:', err);
     res.status(500).json({ message: 'Failed to complete checkout.' });
   }

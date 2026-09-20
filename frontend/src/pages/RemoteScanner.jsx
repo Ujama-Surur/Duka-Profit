@@ -13,28 +13,32 @@ export default function RemoteScanner() {
   const [connecting, setConnecting] = useState(true);
   const [deviceId, setDeviceId] = useState("");
   const [deviceName, setDeviceName] = useState("");
+  const [userId, setUserId] = useState("");
   const [socket, setSocket] = useState(null);
   const [lastBarcode, setLastBarcode] = useState("");
   const [scanCount, setScanCount] = useState(0);
   const [connectionError, setConnectionError] = useState("");
 
   useEffect(() => {
-    // Get device info from URL
-    const params = new URLSearchParams(window.location.search);
+    // Get device info from URL (supporting search query and hash query)
+    const query = window.location.search ||
+      (window.location.hash.includes('?') ? window.location.hash.slice(window.location.hash.indexOf('?')) : '');
+    const params = new URLSearchParams(query);
     const data = params.get("data");
+
+    const uniqueDeviceId = `scanner_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    setDeviceId(uniqueDeviceId);
+    setDeviceName(navigator.userAgent.split(" ")[0] || "Mobile Scanner");
 
     if (data) {
       try {
         const parsed = JSON.parse(decodeURIComponent(data));
-        setDeviceId(parsed.userId || `device_${Date.now()}`);
-        setDeviceName(navigator.userAgent.split(" ")[0] || "Mobile Device");
+        if (parsed.userId) {
+          setUserId(parsed.userId);
+        }
       } catch (e) {
-        setDeviceId(`device_${Date.now()}`);
-        setDeviceName("Mobile Device");
+        console.error("Error parsing scanner pairing data:", e);
       }
-    } else {
-      setDeviceId(`device_${Date.now()}`);
-      setDeviceName("Mobile Device");
     }
   }, []);
 
@@ -67,6 +71,7 @@ export default function RemoteScanner() {
         deviceId,
         deviceName,
         type: "scanner",
+        userId,
       },
     });
 
@@ -117,7 +122,7 @@ export default function RemoteScanner() {
     return () => {
       newSocket.disconnect();
     };
-  }, [deviceId]);
+  }, [deviceId, userId]);
 
   const startScanner = async () => {
     if (!connected) {

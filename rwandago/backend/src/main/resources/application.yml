@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: rwandago-backend
+  profiles:
+    active: dev
+  jpa:
+    open-in-view: false
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+rwandago:
+  jwt:
+    secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+    expiration-ms: 86400000 # 24 hours
+    refresh-expiration-ms: 2592000000 # 30 days
+  cors:
+    allowed-origins:
+      - http://localhost:3000
+      - http://127.0.0.1:3000
+      - https://rwandago.rw
+  currency:
+    base: USD
+    rates:
+      USD: 1.0
+      RWF: 1320.0
+      EUR: 0.92
+      GBP: 0.78
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha

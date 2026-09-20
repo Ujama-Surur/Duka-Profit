@@ -20,6 +20,14 @@ const activateLicense = async (req, res) => {
       return res.status(404).json({ success: false, message: 'License key not found.' });
     }
 
+    if (license.status === 'expired' || (license.expiresAt && new Date() > license.expiresAt)) {
+      return res.status(400).json({ success: false, message: 'License has expired.' });
+    }
+
+    if (license.status === 'suspended') {
+      return res.status(400).json({ success: false, message: 'License has been suspended.' });
+    }
+
     if (license.status !== 'used') {
       license.status = 'used';
       license.deviceId = normalizedMachineId;

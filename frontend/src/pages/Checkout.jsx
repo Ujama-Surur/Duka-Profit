@@ -7,7 +7,7 @@ import RemoteScannerPairing from '../components/RemoteScannerPairing';
 import { useAuth } from '../context/AuthContext';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
-import { ShoppingCart, Camera, Smartphone, Trash2, BarChart3, Receipt, X, Printer, Download, WifiOff, Utensils, Home, Package, Shirt, Banknote, CreditCard, Wifi, AlertTriangle, Check, Building, User } from 'lucide-react';
+import { ShoppingCart, Camera, Smartphone, Trash2, BarChart3, Receipt, X, Printer, Download, WifiOff, Utensils, Home, Package, Shirt, Banknote, CreditCard, Wifi, AlertTriangle, Check, Building, User, Search, Plus, Minus } from 'lucide-react';
 
 const PAYMENT_METHODS = ['cash', 'momo', 'card', 'bank', 'credit'];
 
@@ -16,6 +16,9 @@ export default function Checkout() {
   const { user } = useAuth();
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
+  const [activeTab, setActiveTab] = useState('pos'); // 'pos' | 'history'
+  const [productSearch, setProductSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const [showScanner, setShowScanner] = useState(false);
   const [manualBarcode, setManualBarcode] = useState('');
   const [lookupLoading, setLookupLoading] = useState(false);
@@ -29,6 +32,22 @@ export default function Checkout() {
   const receiptRef = useRef(null);
   const barcodeInputRef = useRef(null);
   const handleBarcodeDetectedRef = useRef(null);
+
+  const playBeep = () => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.12);
+    } catch {}
+  };
 
   // Keep callback ref updated to avoid event listener re-binding
   useEffect(() => {
@@ -150,6 +169,7 @@ export default function Checkout() {
   };
 
   const addToCart = (product) => {
+    playBeep();
     setCart(prev => {
       const existing = prev.find(item => item._id === product._id);
       if (existing) {
@@ -438,315 +458,621 @@ export default function Checkout() {
           }
         }
       `}</style>
-      <div className="checkout-page" style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
-        <div className="page-header">
-          <h1 className="page-title" style={{display:'flex',alignItems:'center',gap:8}}><ShoppingCart size={24} /> Checkout - Scan to Sell</h1>
-          <p className="page-subtitle">Scan products to build cart and complete sales</p>
-        </div>
-
-        <div className="checkout-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 400px', gap: '24px', marginTop: '24px' }}>
-        {/* Left: Scanner and Cart */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          {/* Scanner Section */}
-          <div className="card">
-            <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '16px', display:'flex',alignItems:'center',gap:8 }}><Camera size={20} /> Scan Product</h2>
-            
-            {showScanner ? (
-              <BarcodeScanner
-                onDetected={handleBarcodeDetected}
-                onClose={() => setShowScanner(false)}
-              />
-            ) : (
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                <button 
-                  className="btn btn-primary"
-                  onClick={() => setShowScanner(true)}
-                >
-                  Start Scanner
-                </button>
-                <span style={{ color: 'var(--text-muted)' }}>or</span>
-                 <form onSubmit={handleManualSubmit} style={{ display: 'flex', gap: '8px', flex: 1 }}>
-                   <input
-                     ref={barcodeInputRef}
-                     className="form-input"
-                     placeholder="Enter barcode..."
-                     value={manualBarcode}
-                     onChange={(e) => setManualBarcode(e.target.value)}
-                     disabled={lookupLoading}
-                   />
-                  <button 
-                    type="submit" 
-                    className="btn btn-secondary"
-                    disabled={lookupLoading || !manualBarcode.trim()}
-                  >
-                    {lookupLoading ? '...' : 'Add'}
-                  </button>
-                </form>
-              </div>
-            )}
-
-            {/* Remote Scanner */}
-            {showRemoteScanner && (
-              <div style={{ marginTop: '24px' }}>
-                <RemoteScannerPairing 
-                  onBarcodeScanned={handleBarcodeDetected}
-                />
-              </div>
-            )}
-
-            {!showRemoteScanner && (
-              <button 
-                className="btn btn-ghost btn-full"
-                onClick={() => setShowRemoteScanner(true)}
-                style={{ marginTop: '16px' }}
-              >
-                <Smartphone size={16} style={{marginRight:6}} /> Connect Remote Scanner
-              </button>
-            )}
+      <div className="checkout-page" style={{ padding: '20px', maxWidth: '1440px', margin: '0 auto' }}>
+        {/* POS Header with Tab Switcher */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '16px',
+          marginBottom: '20px'
+        }}>
+          <div>
+            <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '24px', letterSpacing: '-0.02em' }}>
+              <ShoppingCart size={24} style={{ color: 'var(--green-primary)' }} />
+              Point of Sale (POS)
+            </h1>
+            <p className="page-subtitle" style={{ fontSize: '13.5px', marginTop: 2 }}>
+              Fast barcode scanning, touchscreen catalog, and instant checkout
+            </p>
           </div>
 
-          {/* Cart Section */}
-          <div className="card">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 700, display:'flex',alignItems:'center',gap:8 }}><ShoppingCart size={20} /> Cart ({cart.length} items)</h2>
+          {/* Mode Switcher Tabs */}
+          <div style={{
+            display: 'flex',
+            background: 'var(--bg-subtle)',
+            padding: '4px',
+            borderRadius: '10px',
+            border: '1px solid var(--border)'
+          }}>
+            <button
+              onClick={() => setActiveTab('pos')}
+              className={`btn btn-sm ${activeTab === 'pos' ? 'btn-primary' : 'btn-ghost'}`}
+              style={{
+                borderRadius: '8px',
+                fontWeight: '700',
+                padding: '8px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <ShoppingCart size={15} />
+              <span>POS Terminal</span>
               {cart.length > 0 && (
-                <button 
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => setCart([])}
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-
-            {cart.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-                <div style={{ fontSize: '48px', marginBottom: '16px', color:'var(--text-muted)' }}><ShoppingCart size={48} /></div>
-                <p style={{ color: 'var(--text-muted)' }}>Cart is empty. Scan products to add them.</p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {cart.map(item => (
-                  <div 
-                    key={item._id}
-                    className="cart-item"
-                    style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: '12px',
-                      padding: '12px',
-                      background: 'var(--bg-muted)',
-                      borderRadius: '8px'
-                    }}
-                  >
-                    <span style={{ fontSize: '24px' }}>{categoryEmoji(item.category)}</span>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ fontWeight: 600 }}>{item.productName}</p>
-                      <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                        {formatCurrency(item.sellingPrice)} × {item.quantity} = {formatCurrency(item.sellingPrice * item.quantity)}
-                      </p>
-                      {item.quantity >= item.stock && (
-                        <p style={{ fontSize: '12px', color: 'var(--red)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                          <AlertTriangle size={12} /> Max stock reached
-                        </p>
-                      )}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <button 
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => updateQuantity(item._id, item.quantity - 1)}
-                      >
-                        −
-                      </button>
-                      <span style={{ fontWeight: 600, minWidth: '30px', textAlign: 'center' }}>
-                        {item.quantity}
-                      </span>
-                      <button 
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => updateQuantity(item._id, item.quantity + 1)}
-                        disabled={item.quantity >= item.stock}
-                      >
-                        ＋
-                      </button>
-                      <button 
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => removeFromCart(item._id)}
-                        style={{ color: 'var(--red)' }}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-
-                {/* Cart Summary */}
-                <div style={{ 
-                  marginTop: '16px', 
-                  paddingTop: '16px', 
-                  borderTop: '2px solid var(--border)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px'
+                <span style={{
+                  background: 'white',
+                  color: 'var(--green-dark)',
+                  borderRadius: '999px',
+                  padding: '1px 6px',
+                  fontSize: '11px',
+                  fontWeight: '800'
                 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '16px' }}>
-                    <span>Subtotal:</span>
-                    <span>{formatCurrency(cartTotal)}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '16px', color: 'var(--green-primary)' }}>
-                    <span>Profit:</span>
-                    <span>+{formatCurrency(cartProfit)}</span>
-                  </div>
-                  <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    fontSize: '24px', 
-                    fontWeight: 800,
-                    marginTop: '8px',
-                    paddingTop: '8px',
-                    borderTop: '1px solid var(--border)'
-                  }}>
-                    <span>Total:</span>
-                    <span>{formatCurrency(cartTotal)}</span>
-                  </div>
+                  {cart.length}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('history')}
+              className={`btn btn-sm ${activeTab === 'history' ? 'btn-primary' : 'btn-ghost'}`}
+              style={{
+                borderRadius: '8px',
+                fontWeight: '700',
+                padding: '8px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <BarChart3 size={15} />
+              <span>Sales History ({salesHistory.length})</span>
+            </button>
+          </div>
+        </div>
+
+        {activeTab === 'pos' ? (
+          <div className="checkout-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 420px', gap: '20px' }}>
+            {/* Left Column: Scanner & Quick Touch Product Catalog */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {/* Scanner Section */}
+              <div className="card" style={{ padding: '18px 20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                  <h2 style={{ fontSize: '16px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Camera size={18} style={{ color: 'var(--green-primary)' }} />
+                    Barcode Scanner
+                  </h2>
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Auto-detects USB scanner</span>
                 </div>
 
-                {/* Payment Method */}
-                <div className="form-group" style={{ marginTop: '16px' }}>
-                  <label className="form-label">Payment Method</label>
-                  <div className="payment-buttons" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    {PAYMENT_METHODS.map(method => (
-                      <button
-                        key={method}
-                        type="button"
-                        className={`btn ${paymentMethod === method ? 'btn-primary' : 'btn-secondary'}`}
-                        onClick={() => setPaymentMethod(method)}
-                        style={{ display: 'inline-flex', alignItems: 'center', padding: '8px 12px', fontSize: '13px' }}
+                {showScanner ? (
+                  <BarcodeScanner
+                    onDetected={handleBarcodeDetected}
+                    onClose={() => setShowScanner(false)}
+                  />
+                ) : (
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <button 
+                      className="btn btn-outline"
+                      onClick={() => setShowScanner(true)}
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      <Camera size={16} />
+                      <span>Camera</span>
+                    </button>
+                    <form onSubmit={handleManualSubmit} style={{ display: 'flex', gap: '8px', flex: 1, minWidth: '220px' }}>
+                      <input
+                        ref={barcodeInputRef}
+                        className="form-input"
+                        placeholder="Scan or type barcode, then press Enter..."
+                        value={manualBarcode}
+                        onChange={(e) => setManualBarcode(e.target.value)}
+                        disabled={lookupLoading}
+                        style={{ padding: '10px 14px', fontSize: '13.5px' }}
+                      />
+                      <button 
+                        type="submit" 
+                        className="btn btn-primary btn-sm"
+                        disabled={lookupLoading || !manualBarcode.trim()}
                       >
-                        {method === 'cash' && <><Banknote size={16} style={{marginRight:6}} /> Cash</>}
-                        {method === 'momo' && <><Smartphone size={16} style={{marginRight:6}} /> MoMo</>}
-                        {method === 'card' && <><CreditCard size={16} style={{marginRight:6}} /> Card</>}
-                        {method === 'bank' && <><Building size={16} style={{marginRight:6}} /> Bank</>}
-                        {method === 'credit' && <><User size={16} style={{marginRight:6}} /> Credit</>}
+                        {lookupLoading ? '...' : 'Add'}
                       </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Debtor Fields for Sales on Credit */}
-                {paymentMethod === 'credit' && (
-                  <div style={{
-                    background: 'rgba(239, 68, 68, 0.05)',
-                    border: '1px dashed var(--red)',
-                    borderRadius: 'var(--radius-md)',
-                    padding: '12px',
-                    marginTop: '12px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '12px'
-                  }}>
-                    <p style={{ color: 'var(--red)', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, margin: 0 }}>
-                      Debtor Information
-                    </p>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: 12 }}>Customer Name *</label>
-                      <input
-                        type="text"
-                        placeholder="Enter customer name..."
-                        className="form-input"
-                        value={customerName}
-                        onChange={e => setCustomerName(e.target.value)}
-                      />
-                    </div>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: 12 }}>Customer Phone</label>
-                      <input
-                        type="text"
-                        placeholder="Enter customer phone (optional)..."
-                        className="form-input"
-                        value={customerPhone}
-                        onChange={e => setCustomerPhone(e.target.value)}
-                      />
-                    </div>
+                    </form>
                   </div>
                 )}
 
-                <button
-                  className="btn btn-primary btn-lg btn-full"
-                  onClick={handleCheckout}
-                  disabled={processing || cart.length === 0}
-                  style={{ marginTop: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-                >
-                  {processing ? (
-                    <><div className="spinner" style={{ width: 20, height: 20, borderWidth: 2, display: 'inline-block' }}/>&nbsp;Processing...</>
-                  ) : (
-                    <><Check size={18} /> Complete Sale ({formatCurrency(cartTotal)})</>
-                  )}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
+                {/* Remote Scanner Drawer */}
+                {showRemoteScanner && (
+                  <div style={{ marginTop: '16px' }}>
+                    <RemoteScannerPairing onBarcodeScanned={handleBarcodeDetected} />
+                  </div>
+                )}
 
-        {/* Right: Sales History */}
-        <div className="card">
-          <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '16px', display:'flex',alignItems:'center',gap:8 }}><BarChart3 size={20} /> Sales History</h2>
-          
-          <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
-            {salesHistory.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-                <div style={{ fontSize: '48px', marginBottom: '16px', color:'var(--text-muted)' }}><BarChart3 size={48} /></div>
-                <p style={{ color: 'var(--text-muted)' }}>No sales yet</p>
+                {!showRemoteScanner && (
+                  <button 
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => setShowRemoteScanner(true)}
+                    style={{ marginTop: '10px', fontSize: '12px', color: 'var(--green-primary)' }}
+                  >
+                    <Smartphone size={14} style={{ marginRight: 6 }} /> Use smartphone as wireless barcode scanner
+                  </button>
+                )}
               </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {salesHistory.map((sale, index) => (
+
+              {/* Quick Touch Product Catalog */}
+              <div className="card" style={{ padding: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+                  <div>
+                    <h2 style={{ fontSize: '16px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Package size={18} style={{ color: 'var(--green-primary)' }} />
+                      Quick Product Picker
+                    </h2>
+                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 0' }}>
+                      Click any item to add directly to cart
+                    </p>
+                  </div>
+
+                  {/* Search input */}
+                  <div style={{ position: 'relative', width: '220px' }}>
+                    <Search size={15} style={{ position: 'absolute', left: 12, top: 11, color: 'var(--text-light)' }} />
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Search items..."
+                      value={productSearch}
+                      onChange={(e) => setProductSearch(e.target.value)}
+                      style={{ paddingLeft: '34px', padding: '8px 12px 8px 34px', fontSize: '13px' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Category Pills */}
+                <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '10px', marginBottom: '14px' }}>
+                  {['all', 'food', 'electronics', 'clothing', 'household', 'other'].map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setSelectedCategory(cat)}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '999px',
+                        border: '1px solid',
+                        borderColor: selectedCategory === cat ? 'var(--green-primary)' : 'var(--border)',
+                        background: selectedCategory === cat ? 'var(--green-50)' : 'white',
+                        color: selectedCategory === cat ? 'var(--green-dark)' : 'var(--text-muted)',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        textTransform: 'capitalize',
+                        whiteSpace: 'nowrap',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      {cat === 'all' ? 'All Items' : cat}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Product Tiles Grid */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))',
+                  gap: '12px',
+                  maxHeight: '440px',
+                  overflowY: 'auto',
+                  paddingRight: '4px'
+                }}>
+                  {products
+                    .filter(p => {
+                      const matchesSearch = !productSearch.trim() || 
+                        p.productName.toLowerCase().includes(productSearch.toLowerCase()) || 
+                        (p.barcode && p.barcode.includes(productSearch));
+                      const matchesCat = selectedCategory === 'all' || p.category === selectedCategory;
+                      return matchesSearch && matchesCat;
+                    })
+                    .map(product => {
+                      const inCart = cart.find(c => c._id === product._id);
+                      const isOutOfStock = product.stock <= 0;
+
+                      return (
+                        <div
+                          key={product._id}
+                          className="card-interactive"
+                          onClick={() => !isOutOfStock && addToCart(product)}
+                          style={{
+                            padding: '14px',
+                            background: inCart ? '#F0FDF4' : 'white',
+                            border: `1.5px solid ${inCart ? 'var(--green-vibrant)' : 'var(--border)'}`,
+                            borderRadius: '12px',
+                            cursor: isOutOfStock ? 'not-allowed' : 'pointer',
+                            opacity: isOutOfStock ? 0.6 : 1,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'space-between',
+                            gap: '8px',
+                            position: 'relative'
+                          }}
+                        >
+                          {inCart && (
+                            <span style={{
+                              position: 'absolute',
+                              top: 8,
+                              right: 8,
+                              background: 'var(--green-primary)',
+                              color: 'white',
+                              fontSize: '11px',
+                              fontWeight: 800,
+                              borderRadius: '999px',
+                              padding: '2px 7px'
+                            }}>
+                              x{inCart.quantity}
+                            </span>
+                          )}
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: '20px' }}>{categoryEmoji(product.category)}</span>
+                            <p style={{
+                              fontSize: '13px',
+                              fontWeight: 700,
+                              margin: 0,
+                              color: 'var(--text)',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis'
+                            }}>
+                              {product.productName}
+                            </p>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+                            <span style={{ fontSize: '13.5px', fontWeight: 800, color: 'var(--green-primary)' }}>
+                              {formatCurrency(product.sellingPrice)}
+                            </span>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              color: isOutOfStock ? '#DC2626' : product.stock <= 5 ? '#D97706' : 'var(--text-muted)'
+                            }}>
+                              {isOutOfStock ? 'Out' : `${product.stock} left`}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column: Sticky Cart & Payment Panel */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div className="card" style={{
+                position: 'sticky',
+                top: '20px',
+                padding: '20px',
+                display: 'flex',
+                flexDirection: 'column',
+                boxShadow: 'var(--shadow-md)',
+                borderRadius: 'var(--radius-xl)'
+              }}>
+                {/* Cart Header */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                  <h2 style={{ fontSize: '17px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <ShoppingCart size={19} style={{ color: 'var(--green-primary)' }} />
+                    Active Cart ({cart.reduce((s, i) => s + i.quantity, 0)} items)
+                  </h2>
+                  {cart.length > 0 && (
+                    <button 
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => setCart([])}
+                      style={{ color: '#EF4444', fontSize: '12px' }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+
+                {/* Cart Items List */}
+                {cart.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '36px 16px' }}>
+                    <div style={{
+                      width: '60px',
+                      height: '60px',
+                      borderRadius: '50%',
+                      background: 'var(--bg-subtle)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      margin: '0 auto 12px',
+                      color: 'var(--text-light)'
+                    }}>
+                      <ShoppingCart size={28} />
+                    </div>
+                    <p style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text)', margin: '0 0 4px' }}>
+                      Cart is empty
+                    </p>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '12.5px', margin: 0 }}>
+                      Scan a barcode or click products to start
+                    </p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '320px', overflowY: 'auto', paddingRight: '4px' }}>
+                    {cart.map(item => (
+                      <div 
+                        key={item._id}
+                        className="cart-item"
+                        style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '10px',
+                          padding: '10px 12px',
+                          background: '#F8FAFC',
+                          borderRadius: '10px',
+                          border: '1px solid var(--border)'
+                        }}
+                      >
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{
+                            fontWeight: 700,
+                            fontSize: '13px',
+                            margin: 0,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}>
+                            {item.productName}
+                          </p>
+                          <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 0' }}>
+                            {formatCurrency(item.sellingPrice)} × {item.quantity} = <strong>{formatCurrency(item.sellingPrice * item.quantity)}</strong>
+                          </p>
+                        </div>
+
+                        {/* Quantity Stepper */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <button 
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => updateQuantity(item._id, item.quantity - 1)}
+                            style={{ padding: '4px 8px', height: '28px', minWidth: '28px', borderRadius: '6px' }}
+                          >
+                            <Minus size={13} />
+                          </button>
+                          <span style={{ fontWeight: 700, fontSize: '13px', minWidth: '22px', textAlign: 'center' }}>
+                            {item.quantity}
+                          </span>
+                          <button 
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => updateQuantity(item._id, item.quantity + 1)}
+                            disabled={item.quantity >= item.stock}
+                            style={{ padding: '4px 8px', height: '28px', minWidth: '28px', borderRadius: '6px' }}
+                          >
+                            <Plus size={13} />
+                          </button>
+                          <button 
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => removeFromCart(item._id)}
+                            style={{ color: '#EF4444', padding: '4px 6px', height: '28px' }}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Cart Financial Summary */}
+                {cart.length > 0 && (
+                  <div style={{
+                    marginTop: '16px',
+                    paddingTop: '16px',
+                    borderTop: '1.5px dashed var(--border)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13.5px', color: 'var(--text-muted)' }}>
+                      <span>Subtotal ({cart.reduce((s, i) => s + i.quantity, 0)} items)</span>
+                      <span style={{ fontWeight: 600 }}>{formatCurrency(cartTotal)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13.5px' }}>
+                      <span style={{ color: 'var(--green-primary)', fontWeight: 600 }}>Expected Profit</span>
+                      <span className="profit-pill" style={{ fontSize: '12px', padding: '2px 8px' }}>
+                        +{formatCurrency(cartProfit)}
+                      </span>
+                    </div>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'baseline',
+                      fontSize: '22px',
+                      fontWeight: 800,
+                      marginTop: '4px',
+                      paddingTop: '8px',
+                      borderTop: '1px solid var(--border)',
+                      color: 'var(--text)'
+                    }}>
+                      <span>Total:</span>
+                      <span style={{ color: 'var(--green-primary)' }}>{formatCurrency(cartTotal)}</span>
+                    </div>
+
+                    {/* Payment Method Selector */}
+                    <div style={{ marginTop: '12px' }}>
+                      <label className="form-label" style={{ marginBottom: '6px', display: 'block', fontSize: '12px' }}>
+                        Payment Method
+                      </label>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                        {[
+                          { id: 'cash', label: 'Cash', icon: <Banknote size={15} /> },
+                          { id: 'momo', label: 'MoMo', icon: <Smartphone size={15} /> },
+                          { id: 'card', label: 'Card', icon: <CreditCard size={15} /> },
+                          { id: 'bank', label: 'Bank', icon: <Building size={15} /> },
+                          { id: 'credit', label: 'Credit', icon: <User size={15} /> },
+                        ].map(m => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => setPaymentMethod(m.id)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '6px',
+                              padding: '8px 6px',
+                              borderRadius: '8px',
+                              fontSize: '12.5px',
+                              fontWeight: '700',
+                              cursor: 'pointer',
+                              border: '1.5px solid',
+                              borderColor: paymentMethod === m.id ? 'var(--green-primary)' : 'var(--border)',
+                              background: paymentMethod === m.id ? 'var(--green-50)' : 'white',
+                              color: paymentMethod === m.id ? 'var(--green-dark)' : 'var(--text)',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            {m.icon}
+                            <span>{m.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Debtor Fields for Sales on Credit */}
+                    {paymentMethod === 'credit' && (
+                      <div style={{
+                        background: '#FEF2F2',
+                        border: '1px dashed #F87171',
+                        borderRadius: '10px',
+                        padding: '12px',
+                        marginTop: '10px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '10px'
+                      }}>
+                        <p style={{ color: '#B91C1C', fontWeight: 700, fontSize: '12.5px', margin: 0 }}>
+                          Customer / Debtor Details
+                        </p>
+                        <div>
+                          <input
+                            type="text"
+                            placeholder="Customer name *"
+                            className="form-input"
+                            value={customerName}
+                            onChange={e => setCustomerName(e.target.value)}
+                            style={{ padding: '8px 12px', fontSize: '13px' }}
+                          />
+                        </div>
+                        <div>
+                          <input
+                            type="text"
+                            placeholder="Phone number (optional)"
+                            className="form-input"
+                            value={customerPhone}
+                            onChange={e => setCustomerPhone(e.target.value)}
+                            style={{ padding: '8px 12px', fontSize: '13px' }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Complete Sale CTA */}
+                    <button
+                      className="btn btn-primary btn-lg btn-full"
+                      onClick={handleCheckout}
+                      disabled={processing || cart.length === 0}
+                      style={{
+                        marginTop: '14px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        boxShadow: 'var(--shadow-green)',
+                        fontWeight: '800'
+                      }}
+                    >
+                      {processing ? (
+                        <><div className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }}/>&nbsp;Processing...</>
+                      ) : (
+                        <><Check size={18} /> Charge {formatCurrency(cartTotal)}</>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Sales History Tab */
+          <div className="card" style={{ padding: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+              <div>
+                <h2 style={{ fontSize: '18px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <BarChart3 size={20} style={{ color: 'var(--green-primary)' }} />
+                  Recent Sales History
+                </h2>
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '2px 0 0' }}>
+                  Click any transaction to view receipt, print, or download PDF
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {salesHistory.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+                  <div style={{ fontSize: '48px', marginBottom: '16px', color: 'var(--text-muted)' }}><BarChart3 size={48} /></div>
+                  <p style={{ color: 'var(--text-muted)' }}>No sales recorded yet</p>
+                </div>
+              ) : (
+                salesHistory.map((sale, index) => (
                   <div 
                     key={sale._id || index}
+                    className="card-interactive"
                     style={{ 
-                      padding: '12px', 
-                      background: 'var(--bg-muted)', 
-                      borderRadius: '8px',
-                      cursor: 'pointer'
+                      padding: '16px 20px', 
+                      background: 'white', 
+                      borderRadius: '12px',
+                      border: '1px solid var(--border)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '16px',
+                      flexWrap: 'wrap'
                     }}
                     onClick={() => setShowReceipt(sale)}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                        #{sale._id?.slice(-8) || 'OFFLINE'}
-                      </span>
-                      <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                        {formatTime(sale.createdAt)}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontWeight: 600, fontSize: '13px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        <span>{sale.items?.length || 1} item{sale.items?.length !== 1 ? 's' : ''}</span>
-                        <span style={{
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          textTransform: 'uppercase',
-                          color: sale.paymentMethod === 'credit' ? 'var(--red)' : 'var(--text-muted)'
-                        }}>
-                          {sale.paymentMethod || 'cash'}
-                          {sale.paymentMethod === 'credit' && sale.customerName && ` (${sale.customerName})`}
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text)' }}>
+                          #{sale._id?.slice(-8) || 'OFFLINE'}
                         </span>
-                      </span>
-                      <span style={{ fontWeight: 700, fontSize: '18px' }}>
+                        <span className={`badge ${sale.paymentMethod === 'credit' ? 'badge-red' : 'badge-green'}`} style={{ textTransform: 'uppercase' }}>
+                          {sale.paymentMethod || 'cash'}
+                        </span>
+                        {sale.offline && (
+                          <span className="badge badge-yellow" style={{ gap: 4 }}>
+                            <WifiOff size={11} /> Offline
+                          </span>
+                        )}
+                      </div>
+                      <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: 0 }}>
+                        {formatDate(new Date(sale.createdAt))} at {formatTime(sale.createdAt)} · {sale.items?.length || 1} item(s)
+                        {sale.customerName && ` · Customer: ${sale.customerName}`}
+                      </p>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      <span style={{ fontWeight: 800, fontSize: '18px', color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>
                         {formatCurrency(sale.totalAmount)}
                       </span>
+                      <button className="btn btn-outline btn-sm" style={{ padding: '6px 12px' }}>
+                        <Receipt size={14} style={{ marginRight: 4 }} /> Receipt
+                      </button>
                     </div>
-                    {sale.offline && (
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', display:'flex',alignItems:'center',gap:4 }}><WifiOff size={12} /> Offline</span>
-                    )}
                   </div>
-                ))}
-              </div>
-            )}
+                ))
+              )}
+            </div>
           </div>
-        </div>
-      </div>
+        )}
 
-      {/* Receipt Modal */}
+        {/* Receipt Modal */}
       {showReceipt && (
         <div className="modal-overlay" onClick={() => setShowReceipt(null)}>
           <div className="card" style={{ maxWidth: '500px', margin: '40px auto' }} onClick={e => e.stopPropagation()}>

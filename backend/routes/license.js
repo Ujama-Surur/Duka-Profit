@@ -38,17 +38,14 @@ router.post(
           .json({ valid: false, message: "License has been suspended." });
       }
 
-      // If already used and bound to a different device, reject
-      if (
-        license.status === "used" &&
-        license.deviceId &&
-        deviceId &&
-        license.deviceId !== deviceId
-      ) {
-        return res.status(400).json({
-          valid: false,
-          message: "This license is bound to a different device.",
-        });
+      // If already used and bound to a device, verify device match
+      if (license.status === "used" && license.deviceId) {
+        if (!deviceId || license.deviceId !== deviceId) {
+          return res.status(400).json({
+            valid: false,
+            message: "This license is bound to a different device.",
+          });
+        }
       }
 
       res.json({

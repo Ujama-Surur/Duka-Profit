@@ -59,9 +59,9 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem("duka_token");
       localStorage.removeItem("duka_user");
-      const pathname = window.location.pathname;
-      if (pathname !== "/login" && pathname !== "/register") {
-        window.location.href = "/login";
+      const hash = window.location.hash;
+      if (!hash.includes("#/login") && !hash.includes("#/register")) {
+        window.location.hash = "#/login";
       }
     }
 
@@ -138,6 +138,15 @@ export const offlineData = {
     try {
       await pendingStore.removeItem("queue");
     } catch {}
+  },
+  async clearAll() {
+    try {
+      await offlineStore.clear();
+      await pendingStore.clear();
+      console.log("Offline cache cleared successfully.");
+    } catch (e) {
+      console.error("Error clearing offline cache:", e);
+    }
   },
 };
 
