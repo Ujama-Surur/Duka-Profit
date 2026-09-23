@@ -21,7 +21,8 @@ import {
   Layers,
   Archive,
   DollarSign,
-  ClipboardList
+  ClipboardList,
+  Crown
 } from 'lucide-react';
 
 const NAV_SECTIONS = [
@@ -59,6 +60,7 @@ const NAV_SECTIONS = [
     title: 'Settings & Admin',
     key: 'management',
     items: [
+      { path: '/subscription', icon: <Crown size={19} />, key: 'subscription', badge: 'PRO' },
       { path: '/admin', icon: <Lock size={19} />, key: 'admin', adminOnly: true },
       { path: '/settings', icon: <Settings size={19} />, key: 'settings' },
     ]
@@ -67,7 +69,7 @@ const NAV_SECTIONS = [
 
 const LayoutEnhanced = () => {
   const { t } = useTranslation();
-  const { user, logout } = useAuth();
+  const { user, logout, hasEntitlement, isSubscriptionActive } = useAuth();
   const navigate = useNavigate();
   
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
@@ -75,7 +77,7 @@ const LayoutEnhanced = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-  const hasPremiumAccess = user?.role === 'admin' || user?.licenseStatus === 'active';
+  const hasPremiumAccess = user?.role === 'admin' || isSubscriptionActive || hasEntitlement('CHECKOUT');
 
   // Global F2 keyboard shortcut to open POS checkout
   useEffect(() => {

@@ -43,6 +43,21 @@ const userSchema = new mongoose.Schema({
     default: Date.now,
   },
   // New subscription-related fields
+  phone: {
+    type: String,
+    trim: true,
+    default: '',
+  },
+  currentSubscription: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Subscription',
+    default: null,
+  },
+  subscriptionStatus: {
+    type: String,
+    enum: ['TRIAL', 'ACTIVE', 'EXPIRING_SOON', 'EXPIRED', 'CANCELLED', 'SUSPENDED', 'PENDING', 'NONE'],
+    default: 'NONE',
+  },
   isEmailVerified: {
     type: Boolean,
     default: false

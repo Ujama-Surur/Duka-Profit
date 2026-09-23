@@ -36,6 +36,9 @@ const InventoryOrders = lazy(() => import("./pages/InventoryOrders"));
 const CategoriesUnits = lazy(() => import("./pages/CategoriesUnits"));
 const Stock = lazy(() => import("./pages/Stock"));
 const Finance = lazy(() => import("./pages/Finance"));
+const Pricing = lazy(() => import("./pages/Pricing"));
+const Subscription = lazy(() => import("./pages/Subscription"));
+const PaymentVerify = lazy(() => import("./pages/PaymentVerify"));
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -61,11 +64,11 @@ function AdminRoute({ children }) {
 }
 
 function PremiumRoute({ children }) {
-  const { user, loading } = useAuth();
+  const { user, loading, isSubscriptionActive, hasEntitlement } = useAuth();
   if (loading) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
-  // Allow if user is admin or has active license
-  if (user.role !== "admin" && user.licenseStatus !== "active") {
+  // Allow if user is admin, has active legacy license, or has active SaaS subscription / checkout entitlement
+  if (user.role !== "admin" && !isSubscriptionActive && !hasEntitlement("CHECKOUT")) {
     return <UpgradePremiumScreen />;
   }
   return children;
@@ -155,6 +158,7 @@ export default function App() {
           <Suspense fallback={<LoadingScreen />}>
             <Routes>
               <Route path="/landing" element={<Landing />} />
+              <Route path="/pricing" element={<Pricing />} />
               <Route
                 path="/login"
                 element={
@@ -180,6 +184,14 @@ export default function App() {
                 }
               />
               <Route path="/remote-scanner" element={<RemoteScanner />} />
+              <Route
+                path="/payment-verify"
+                element={
+                  <ProtectedRoute>
+                    <PaymentVerify />
+                  </ProtectedRoute>
+                }
+              />
 
               {/* Authenticated Layout */}
               <Route
@@ -209,6 +221,7 @@ export default function App() {
                 } />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/daily-report" element={<DailyReport />} />
+                <Route path="/subscription" element={<Subscription />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route
                   path="/admin"

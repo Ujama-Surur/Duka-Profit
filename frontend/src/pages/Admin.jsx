@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import api, { formatCurrency, formatDate } from '../utils/api';
 import styles from './Admin.module.css';
-import { Lock, BarChart3, Key, Users, TrendingUp, Coins } from 'lucide-react';
+import { Lock, BarChart3, Key, Users, TrendingUp, Coins, CreditCard, Crown, Sparkles, Clock } from 'lucide-react';
 
 export default function Admin() {
   const { t } = useTranslation();
@@ -14,6 +14,12 @@ export default function Admin() {
   const [users, setUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+
+  // SaaS Billing State
+  const [billingOverview, setBillingOverview] = useState(null);
+  const [subscriptions, setSubscriptions] = useState([]);
+  const [payments, setPayments] = useState([]);
+  const [extendingId, setExtendingId] = useState(null);
 
   // License generation state
   const [licenseForm, setLicenseForm] = useState({
@@ -28,15 +34,21 @@ export default function Admin() {
 
   const loadDashboardData = async () => {
     try {
-      const [statsRes, licensesRes, usersRes] = await Promise.all([
+      const [statsRes, licensesRes, usersRes, billingRes, subsRes, paymentsRes] = await Promise.all([
         api.get('/admin/stats'),
         api.get('/admin/licenses'),
-        api.get('/admin/users')
+        api.get('/admin/users'),
+        api.get('/admin/billing/overview').catch(() => ({ data: null })),
+        api.get('/admin/subscriptions').catch(() => ({ data: { subscriptions: [] } })),
+        api.get('/admin/payments').catch(() => ({ data: { payments: [] } })),
       ]);
       
       setStats(statsRes.data);
       setLicenses(licensesRes.data.licenses || []);
       setUsers(usersRes.data.users || []);
+      if (billingRes.data) setBillingOverview(billingRes.data);
+      if (subsRes.data?.subscriptions) setSubscriptions(subsRes.data.subscriptions);
+      if (paymentsRes.data?.payments) setPayments(paymentsRes.data.payments);
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
       toast.error('Failed to load dashboard data');
@@ -96,6 +108,30 @@ export default function Admin() {
     return matchesSearch && matchesFilter;
   });
 
+  const handleExtendSubscription = async (subscriptionId, days = 30) => {
+    setExtendingId(subscriptionId);
+    try {
+      const { data } = await api.post(`/admin/subscriptions/${subscriptionId}/extend`, { days });
+      toast.success(data.message || `Extended subscription by ${days} days`);
+      loadDashboardData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to extend subscription');
+    } finally {
+      setExtendingId(null);
+    }
+  };
+
+  const handleSuspendSubscription = async (subscriptionId) => {
+    if (!window.confirm('Are you sure you want to suspend this subscription? The user will immediately lose access.')) return;
+    try {
+      const { data } = await api.post(`/admin/subscriptions/${subscriptionId}/suspend`);
+      toast.success(data.message || 'Subscription suspended');
+      loadDashboardData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to suspend subscription');
+    }
+  };
+
   if (loading) {
     return (
       <div className="loading-container">
@@ -143,6 +179,12 @@ export default function Admin() {
           onClick={() => setActiveTab('users')}
         >
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Users size={16} /> User Management</span>
+        </button>
+        <button
+          className={`${styles.tab} ${activeTab === 'billing' ? styles.active : ''}`}
+          onClick={() => setActiveTab('billing')}
+        >
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><CreditCard size={16} /> SaaS Subscriptions & Billing</span>
         </button>
       </div>
 
@@ -341,6 +383,197 @@ export default function Admin() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'billing' && (
+          <div className={styles.billingSection}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+              <div className={styles.statCard}>
+                <span className={styles.statNumber}>
+                  {billingOverview?.revenue?.total ? `${billingOverview.revenue.total.toLocaleString()} RWF` : '0 RWF'}
+                </span>
+                <span className={styles.statLabel}>Total SaaS Revenue</span>
+              </div>
+              <div className={styles.statCard}>
+                <span className={styles.statNumber}>
+                  {billingOverview?.revenue?.monthly ? `${billingOverview.revenue.monthly.toLocaleString()} RWF` : '0 RWF'}
+                </span>
+                <span className={styles.statLabel}>30-Day Revenue</span>
+              </div>
+              <div className={styles.statCard}>
+                <span className={styles.statNumber}>{billingOverview?.subscriptions?.active ?? 0}</span>
+                <span className={styles.statLabel}>Active Subscriptions</span>
+              </div>
+              <div className={styles.statCard}>
+                <span className={styles.statNumber}>{billingOverview?.subscriptions?.expired ?? 0}</span>
+                <span className={styles.statLabel}>Expired / In Grace</span>
+              </div>
+              <div className={styles.statCard}>
+                <span className={styles.statNumber}>{billingOverview?.payments?.success ?? 0}</span>
+                <span className={styles.statLabel}>Completed Payments</span>
+              </div>
+            </div>
+
+            {/* Subscriptions Table */}
+            <div style={{ marginBottom: '2.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Crown size={20} style={{ color: '#F59E0B' }} /> Customer Subscriptions
+              </h2>
+              <div className={styles.licenseTable}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Customer</th>
+                      <th>Current Plan</th>
+                      <th>Status</th>
+                      <th>Valid Until</th>
+                      <th>Source</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {subscriptions.length > 0 ? (
+                      subscriptions.map((sub) => {
+                        const isExpired = new Date(sub.endDate) < new Date();
+                        const statusClass = sub.status === 'ACTIVE' && !isExpired
+                          ? styles.active
+                          : sub.status === 'ACTIVE' && isExpired
+                          ? styles.suspended
+                          : sub.status === 'SUSPENDED'
+                          ? styles.expired
+                          : styles.inactive;
+
+                        return (
+                          <tr key={sub._id}>
+                            <td>
+                              <div style={{ fontWeight: 600 }}>{sub.userId?.name || 'Customer'}</div>
+                              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{sub.userId?.email || 'N/A'}</div>
+                            </td>
+                            <td>
+                              <span style={{ fontWeight: 600 }}>{sub.planId?.name || 'Starter Plan'}</span>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                {sub.planId?.price ? `${sub.planId.price.toLocaleString()} RWF` : 'Free'}
+                              </div>
+                            </td>
+                            <td>
+                              <span className={`${styles.status} ${statusClass}`}>
+                                {isExpired && sub.status === 'ACTIVE' ? 'GRACE PERIOD' : sub.status}
+                              </span>
+                            </td>
+                            <td>
+                              <div>{formatDate(sub.endDate)}</div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                {isExpired ? 'Expired' : `${Math.max(0, Math.ceil((new Date(sub.endDate) - new Date()) / (1000 * 60 * 60 * 24)))} days left`}
+                              </div>
+                            </td>
+                            <td>
+                              <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', background: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
+                                {sub.source || 'GATEWAY'}
+                              </span>
+                            </td>
+                            <td>
+                              <div className={styles.actions}>
+                                <button
+                                  className="btn btn-sm btn-primary"
+                                  onClick={() => handleExtendSubscription(sub._id, 30)}
+                                  disabled={extendingId === sub._id}
+                                  title="Add 30 days to this customer subscription"
+                                >
+                                  {extendingId === sub._id ? 'Extending...' : '+30 Days'}
+                                </button>
+                                {sub.status !== 'SUSPENDED' && (
+                                  <button
+                                    className="btn btn-sm btn-danger"
+                                    onClick={() => handleSuspendSubscription(sub._id)}
+                                    title="Suspend customer access immediately"
+                                  >
+                                    Suspend
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                          No customer subscriptions found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Payments & Transactions Log */}
+            <div>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CreditCard size={20} style={{ color: '#10B981' }} /> SaaS Payment Transactions
+              </h2>
+              <div className={styles.licenseTable}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Reference</th>
+                      <th>Customer</th>
+                      <th>Amount</th>
+                      <th>Provider / Method</th>
+                      <th>Status</th>
+                      <th>Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payments.length > 0 ? (
+                      payments.map((p) => {
+                        const statusClass = p.status === 'SUCCESS'
+                          ? styles.active
+                          : p.status === 'PENDING'
+                          ? styles.trial
+                          : styles.expired;
+
+                        return (
+                          <tr key={p._id}>
+                            <td style={{ fontFamily: 'monospace', fontSize: '0.85rem', fontWeight: 600 }}>
+                              {p.transactionReference}
+                            </td>
+                            <td>
+                              <div>{p.userId?.name || p.customerEmail || 'Anonymous'}</div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{p.userId?.email || p.customerEmail}</div>
+                            </td>
+                            <td style={{ fontWeight: 700, color: 'var(--primary)' }}>
+                              {p.amount ? p.amount.toLocaleString() : 0} {p.currency || 'RWF'}
+                            </td>
+                            <td>
+                              <span>{p.provider}</span>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '6px' }}>
+                                ({p.paymentMethod || 'MoMo / Card'})
+                              </span>
+                            </td>
+                            <td>
+                              <span className={`${styles.status} ${statusClass}`}>
+                                {p.status}
+                              </span>
+                            </td>
+                            <td style={{ fontSize: '0.85rem' }}>
+                              {formatDate(p.createdAt)}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                          No payments recorded yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}

@@ -218,6 +218,9 @@ app.use("/api/orders", require("./routes/orders"));
 app.use("/api/categories", require("./routes/categories"));
 app.use("/api/unit-types", require("./routes/unit-types"));
 app.use("/api/transactions", require("./routes/transactions"));
+app.use("/api/plans", require("./routes/plans"));
+app.use("/api/subscriptions", require("./routes/subscriptions"));
+app.use("/api/payments", require("./routes/payments"));
 app.use("/api/daily-reports", require("./routes/daily-reports"));
 
 // Serve frontend in production
@@ -311,8 +314,14 @@ process.on("SIGINT", () => handleShutdown("SIGINT"));
 if (process.env.NODE_ENV !== "test") {
   mongoose
     .connect(process.env.MONGODB_URI || "mongodb://localhost:27017/duka-profit")
-    .then(() => {
+    .then(async () => {
       console.log("MongoDB connected");
+      try {
+        const SubscriptionPlan = require("./models/SubscriptionPlan");
+        await SubscriptionPlan.seedDefaultPlans();
+      } catch (seedErr) {
+        console.warn("Could not seed default plans:", seedErr.message);
+      }
       startServerWithPortRetry(PORT, MAX_PORT_RETRIES);
     })
     .catch((err) => {

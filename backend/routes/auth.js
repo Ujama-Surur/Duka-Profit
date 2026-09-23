@@ -4,6 +4,10 @@ const crypto = require("crypto");
 const { body } = require("express-validator");
 const User = require("../models/User");
 const License = require("../models/License");
+const Subscription = require("../models/Subscription");
+const SubscriptionPlan = require("../models/SubscriptionPlan");
+const AuditLog = require("../models/AuditLog");
+const { getUserEntitlements } = require("../services/entitlementService");
 const { protect } = require("../middleware/auth");
 const { validate } = require("../middleware/validate");
 const sendEmail = require("../utils/sendEmail");
@@ -89,9 +93,17 @@ router.post(
         deviceId,
       });
 
+      // Ensure default plans exist
+      let proPlan = await SubscriptionPlan.findOne({ slug: 'monthly' });
+      let freePlan = await SubscriptionPlan.findOne({ slug: 'free' });
+      if (!proPlan || !freePlan) {
+        await SubscriptionPlan.seedDefaultPlans();
+        proPlan = await SubscriptionPlan.findOne({ slug: 'monthly' });
+        freePlan = await SubscriptionPlan.findOne({ slug: 'free' });
+      }
+
       if (license) {
         // Mark license as used ONLY if it's not the demo license
-        // Demo license should remain active for multiple users
         if (finalLicenseKey !== "DUKA-DEMO-2024-FREE") {
           license.status = "used";
           license.assignedTo = user._id;
@@ -99,17 +111,58 @@ router.post(
           license.activatedAt = new Date();
           await license.save();
         } else {
-          // Demo license: track usage but keep it available
           license.activatedAt = new Date();
           license.timesUsed = (license.timesUsed || 0) + 1;
           license.lastUsedBy = user._id;
           license.lastUsedAt = new Date();
           await license.save();
         }
+
+        // Create Pro subscription mapped from legacy license
+        const targetPlan = proPlan || freePlan;
+        const sub = await Subscription.create({
+          userId: user._id,
+          planId: targetPlan._id,
+          status: 'ACTIVE',
+          startDate: new Date(),
+          endDate: license.expiresAt || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+          source: 'LEGACY_LICENSE',
+          provider: 'legacy_license',
+        });
+        user.currentSubscription = sub._id;
+        user.subscriptionStatus = 'ACTIVE';
+        await user.save();
+
+        await AuditLog.create({
+          userId: user._id,
+          action: 'LEGACY_LICENSE_MIGRATED',
+          subscriptionId: sub._id,
+          metadata: { licenseKey: finalLicenseKey, reason: 'Registered with legacy key' },
+        });
+      } else if (freePlan) {
+        // Assign default Free Starter subscription
+        const sub = await Subscription.create({
+          userId: user._id,
+          planId: freePlan._id,
+          status: 'ACTIVE',
+          startDate: new Date(),
+          endDate: new Date(Date.now() + 3650 * 24 * 60 * 60 * 1000),
+          source: 'DEFAULT_FREE',
+          provider: 'free_tier',
+        });
+        user.currentSubscription = sub._id;
+        user.subscriptionStatus = 'ACTIVE';
+        await user.save();
       }
 
+      const entitlementsData = await getUserEntitlements(user._id);
+      const userObj = user.toJSON();
+      userObj.subscription = entitlementsData;
+      userObj.entitlements = entitlementsData.entitlements;
+      userObj.subscriptionStatus = entitlementsData.status;
+
       const token = generateToken(user._id);
-      res.status(201).json({ token, user });
+      res.status(201).json({ token, user: userObj });
     } catch (err) {
       console.error("Register error:", err);
       res
@@ -259,8 +312,17 @@ router.put(
 );
 
 // GET /api/auth/me
-router.get("/me", protect, (req, res) => {
-  res.json(req.user);
+router.get("/me", protect, async (req, res) => {
+  try {
+    const entitlementsData = await getUserEntitlements(req.user._id);
+    const userObj = req.user.toJSON();
+    userObj.subscription = entitlementsData;
+    userObj.entitlements = entitlementsData.entitlements;
+    userObj.subscriptionStatus = entitlementsData.status;
+    res.json(userObj);
+  } catch (err) {
+    res.json(req.user);
+  }
 });
 
 // PUT /api/auth/profile
@@ -373,11 +435,18 @@ router.put(
           .json({ message: "This license key is already in use by another account." });
       }
 
+      // Ensure default plans exist
+      let proPlan = await SubscriptionPlan.findOne({ slug: 'monthly' });
+      if (!proPlan) {
+        await SubscriptionPlan.seedDefaultPlans();
+        proPlan = await SubscriptionPlan.findOne({ slug: 'monthly' });
+      }
+
       // Update user status
       const user = await User.findById(req.user._id);
       user.licenseKey = key;
       user.licenseStatus = "active";
-      await user.save();
+      user.subscriptionStatus = "ACTIVE";
 
       // Mark license as used if it's not the demo license
       if (key !== "DUKA-DEMO-2024-FREE") {
@@ -393,7 +462,35 @@ router.put(
         await license.save();
       }
 
-      res.json({ message: "License activated successfully!", user });
+      // Create / link active subscription for the user
+      const expiryDate = license.expiresAt || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+      const sub = await Subscription.create({
+        userId: user._id,
+        planId: proPlan ? proPlan._id : null,
+        status: 'ACTIVE',
+        startDate: new Date(),
+        endDate: expiryDate,
+        source: 'LEGACY_LICENSE',
+        provider: 'legacy_license',
+      });
+
+      user.currentSubscription = sub._id;
+      await user.save();
+
+      await AuditLog.create({
+        userId: user._id,
+        action: 'LEGACY_LICENSE_MIGRATED',
+        subscriptionId: sub._id,
+        metadata: { licenseKey: key, activatedAt: new Date() },
+      });
+
+      const entitlementsData = await getUserEntitlements(user._id);
+      const userObj = user.toJSON();
+      userObj.subscription = entitlementsData;
+      userObj.entitlements = entitlementsData.entitlements;
+      userObj.subscriptionStatus = entitlementsData.status;
+
+      res.json({ message: "License activated successfully! Your Pro subscription is active.", user: userObj });
     } catch (err) {
       console.error("License activation error:", err);
       res.status(500).json({ message: "Failed to activate license." });

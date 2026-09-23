@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
-import { useLocation } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import api from '../utils/api';
+import api, { formatCurrency, formatDate } from '../utils/api';
 import styles from './Settings.module.css';
-import { User, Receipt, Globe, Lock, Key, Info, Save, CheckCircle, DollarSign, Check, AlertTriangle } from 'lucide-react';
+import { User, Receipt, Globe, Lock, Key, Info, Save, CheckCircle, DollarSign, Check, AlertTriangle, Crown, Sparkles } from 'lucide-react';
 
 const UkFlag = () => (
   <svg width="24" height="16" viewBox="0 0 60 30" style={{ borderRadius: '2px', boxShadow: '0 1px 3px rgba(0,0,0,0.15)' }}>
@@ -59,7 +59,7 @@ export default function Settings() {
     { key: 'receipts', icon: <Receipt size={20} />, label: 'Receipts' },
     { key: 'language', icon: <Globe size={20} />, label: t('language') },
     { key: 'security', icon: <Lock size={20} />, label: 'Security' },
-    { key: 'license', icon: <Key size={20} />, label: t('license') },
+    { key: 'subscription', icon: <Crown size={20} />, label: 'Subscription' },
     { key: 'about', icon: <Info size={20} />, label: 'About' },
   ];
 
@@ -100,7 +100,9 @@ export default function Settings() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab');
-    if (tab && SECTIONS.some(s => s.key === tab)) {
+    if (tab === 'license' || tab === 'subscription') {
+      setActiveSection('subscription');
+    } else if (tab && SECTIONS.some(s => s.key === tab)) {
       setActiveSection(tab);
     }
   }, [location.search]);
@@ -332,74 +334,79 @@ export default function Settings() {
             </div>
           )}
 
-          {/* License */}
-          {activeSection === 'license' && (() => {
-            const isLicenseActive = user?.role === 'admin' || user?.licenseStatus === 'active';
+          {/* Subscription & Billing */}
+          {(activeSection === 'subscription' || activeSection === 'license') && (() => {
+            const isLicenseActive = user?.role === 'admin' || user?.licenseStatus === 'active' || user?.subscription?.isEntitled || user?.subscriptionStatus === 'ACTIVE';
+            const daysRemaining = user?.subscription?.daysRemaining ?? (isLicenseActive ? 30 : 0);
+            const planName = user?.role === 'admin' ? 'Administrator' : user?.subscription?.plan?.name || (isLicenseActive ? 'Pro Plan' : 'Free Starter');
+
             return (
               <div className="card">
-                <h2 className={styles.sectionTitle} style={{display:'flex',alignItems:'center',gap:8}}><Key size={20} /> {t('license')}</h2>
-                {isLicenseActive ? (
-                  <div className={styles.licenseInfo}>
-                    <div className={styles.licenseStatus}>
-                      <span style={{fontSize:48,color:'var(--green-primary)'}}><CheckCircle size={48} /></span>
-                      <div>
-                        <p style={{fontFamily:'var(--font-display)',fontWeight:800,fontSize:20,color:'var(--green-primary)'}}>
-                          {user?.role === 'admin' ? 'Admin Access' : t('active')}
-                        </p>
-                        <p style={{color:'var(--text-muted)',fontSize:14}}>
-                          {user?.role === 'admin' ? 'All features unlocked under Administrator role' : 'Premium license is valid and active'}
-                        </p>
-                      </div>
-                    </div>
-                    <div className={styles.licenseDetails}>
-                      <LicenseRow label="License Key" value={user?.licenseKey ? `${user.licenseKey.slice(0,12)}****` : 'N/A'} />
-                      <LicenseRow label={t('deviceId')} value={localStorage.getItem('duka_device_id') || 'Detecting...'} />
-                      <LicenseRow label="Registered Email" value={user?.email} />
-                      <LicenseRow label="Plan" value={user?.role === 'admin' ? 'Administrator' : 'Premium — Single Device'} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                  <h2 className={styles.sectionTitle} style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
+                    <Crown size={22} color="var(--green-primary)" /> Subscription & Billing
+                  </h2>
+                  <Link to="/pricing" className="btn btn-primary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
+                    <Sparkles size={14} /> Upgrade / Change Plan
+                  </Link>
+                </div>
+
+                <div className={styles.licenseInfo}>
+                  <div className={styles.licenseStatus}>
+                    <span style={{ fontSize: 48, color: isLicenseActive ? 'var(--green-primary)' : '#EAB308' }}>
+                      {isLicenseActive ? <CheckCircle size={48} /> : <AlertTriangle size={48} />}
+                    </span>
+                    <div>
+                      <p style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20, color: isLicenseActive ? 'var(--green-primary)' : '#EAB308', margin: '0 0 4px 0' }}>
+                        {user?.role === 'admin' ? 'Administrator Access' : isLicenseActive ? 'Active Subscription' : 'Free Starter Tier'}
+                      </p>
+                      <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: 0 }}>
+                        {user?.role === 'admin'
+                          ? 'All features unlocked under Administrator role'
+                          : isLicenseActive
+                          ? `Full access active. ${daysRemaining > 0 ? `${daysRemaining} day(s) remaining.` : ''}`
+                          : 'POS Checkout and Stock-In Scanner are locked. Upgrade to unlock.'}
+                      </p>
                     </div>
                   </div>
-                ) : (
-                  <div className={styles.licenseInfo}>
-                    <div className={styles.licenseStatus} style={{ borderBottom: '1px solid var(--border)', paddingBottom: '20px', marginBottom: '20px' }}>
-                      <span style={{fontSize:48,color:'#EAB308'}}><AlertTriangle size={48} /></span>
-                      <div>
-                        <p style={{fontFamily:'var(--font-display)',fontWeight:800,fontSize:20,color:'#EAB308'}}>
-                          Standard License
-                        </p>
-                        <p style={{color:'var(--text-muted)',fontSize:14}}>Premium features (POS Checkout & Stock-In Scanner) are locked.</p>
-                      </div>
-                    </div>
 
-                    <form onSubmit={handleActivateUserLicense} style={{ display: 'grid', gap: '12px', maxWidth: '400px', width: '100%' }}>
-                      <div className="form-group">
-                        <label className="form-label" style={{ fontWeight: '600', color: 'var(--text)' }}>Enter Premium License Key</label>
-                        <input
-                          className="form-input"
-                          type="text"
-                          value={newLicenseKey}
-                          onChange={(e) => setNewLicenseKey(e.target.value)}
-                          placeholder="DUKA-XXXX-XXXX-XXXX"
-                          autoComplete="off"
-                          disabled={activatingLicense}
-                          style={{ textTransform: 'uppercase' }}
-                        />
-                        <span className="form-hint">Paste your generated premium key to unlock all POS and scanning features.</span>
-                      </div>
+                  <div className={styles.licenseDetails}>
+                    <LicenseRow label="Current Plan" value={planName} />
+                    <LicenseRow label="Registered Email" value={user?.email} />
+                    {user?.phone && <LicenseRow label="Mobile Money Phone" value={user?.phone} />}
+                    {user?.subscription?.endDate && (
+                      <LicenseRow label="Renews / Expires" value={formatDate(user.subscription.endDate)} />
+                    )}
+                  </div>
 
-                      <button type="submit" className="btn btn-primary" disabled={activatingLicense} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%', marginTop: '6px' }}>
-                        {activatingLicense ? 'Activating...' : <><Key size={16} /> Activate License</>}
+                  <div className="divider" style={{ margin: '24px 0' }} />
+
+                  {/* Legacy license card redemption */}
+                  <div style={{ background: 'var(--bg)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                    <h4 style={{ margin: '0 0 6px 0', fontSize: '15px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Key size={16} /> Have a physical scratch card or license key?
+                    </h4>
+                    <p style={{ margin: '0 0 14px 0', fontSize: '13px', color: 'var(--text-muted)' }}>
+                      Enter your legacy card key to instantly link and activate your Duka Profit Pro subscription.
+                    </p>
+
+                    <form onSubmit={handleActivateUserLicense} style={{ display: 'flex', gap: '10px', maxWidth: '500px', width: '100%' }}>
+                      <input
+                        className="form-input"
+                        type="text"
+                        value={newLicenseKey}
+                        onChange={(e) => setNewLicenseKey(e.target.value)}
+                        placeholder="DUKA-XXXX-XXXX-XXXX"
+                        autoComplete="off"
+                        disabled={activatingLicense}
+                        style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                      />
+                      <button type="submit" className="btn btn-secondary" disabled={activatingLicense} style={{ flexShrink: 0 }}>
+                        {activatingLicense ? 'Activating...' : 'Redeem Key'}
                       </button>
                     </form>
-
-                    <div className="divider" style={{ margin: '24px 0' }} />
-
-                    <div className={styles.licenseDetails}>
-                      <LicenseRow label={t('deviceId')} value={localStorage.getItem('duka_device_id') || 'Detecting...'} />
-                      <LicenseRow label="Registered Email" value={user?.email} />
-                      <LicenseRow label="Plan" value="Standard (Free Trial / Standard)" />
-                    </div>
                   </div>
-                )}
+                </div>
               </div>
             );
           })()}
