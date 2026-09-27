@@ -3,11 +3,13 @@ import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import BarcodeScanner from "../components/BarcodeScanner";
 import api, { formatCurrency, offlineData } from "../utils/api";
+import { SUPPORTED_CURRENCIES, calculateReplacementCost, calculateSuggestedSellingPrice } from "../utils/currencyUtils";
 import styles from "./Products.module.css";
 import { 
   Package, Search, Trash2, Save, Utensils, Smartphone, Shirt, Home, 
   DollarSign, WifiOff, Plus, Pencil, X, Info, AlertTriangle, 
-  TrendingUp, Boxes, Barcode, Camera, Calendar, Layers, CheckCircle2
+  TrendingUp, Boxes, Barcode, Camera, Calendar, Layers, CheckCircle2,
+  ShieldAlert, RefreshCw, ArrowUpRight
 } from 'lucide-react';
 
 const CATEGORIES = ["food", "electronics", "clothing", "household", "other"];
@@ -24,6 +26,11 @@ const defaultForm = {
   category: "other",
   unitType: "pieces",
   productImageUrl: "",
+  pricingMode: "fixed",
+  currency: "USD",
+  baseCost: "",
+  purchaseExchangeRate: "",
+  targetMargin: "20",
 };
 
 export default function Products() {
@@ -44,11 +51,27 @@ export default function Products() {
   const autoSaveTimerRef = useRef(null);
   const [categoriesList, setCategoriesList] = useState([]);
   const [unitTypesList, setUnitTypesList] = useState([]);
+  const [currencySettings, setCurrencySettings] = useState(null);
+  const [currentRate, setCurrentRate] = useState(null);
 
   useEffect(() => {
     loadProducts();
     loadCategoriesAndUnits();
+    loadCurrencyInfo();
   }, []);
+
+  const loadCurrencyInfo = async () => {
+    try {
+      const [settingsRes, rateRes] = await Promise.all([
+        api.get("/currency/settings").catch(() => ({ data: null })),
+        api.get("/currency/rate/current").catch(() => ({ data: null })),
+      ]);
+      if (settingsRes?.data) setCurrencySettings(settingsRes.data);
+      if (rateRes?.data?.rate) setCurrentRate(rateRes.data);
+    } catch {
+      // offline or not configured
+    }
+  };
 
   const loadCategoriesAndUnits = async () => {
     try {
@@ -119,7 +142,12 @@ export default function Products() {
 
   const openAdd = () => {
     setEditItem(null);
-    setForm(defaultForm);
+    setForm({
+      ...defaultForm,
+      currency: currencySettings?.baseCurrency || "USD",
+      purchaseExchangeRate: currentRate?.rate ? currentRate.rate.toString() : "",
+      targetMargin: currencySettings?.minProtectionMargin ? currencySettings.minProtectionMargin.toString() : "20",
+    });
     setErrors({});
     setAutoSaveActive(true);
     setShowModal(true);
@@ -140,6 +168,15 @@ export default function Products() {
       unitType: product.unitType || "pieces",
       productImageUrl: product.productImageUrl || "",
       lowStockThreshold: product.lowStockThreshold?.toString() || "10",
+      pricingMode: product.pricingMode || "fixed",
+      currency: product.currency || currencySettings?.baseCurrency || "USD",
+      baseCost: product.baseCost != null ? product.baseCost.toString() : "",
+      purchaseExchangeRate: product.purchaseExchangeRate != null 
+        ? product.purchaseExchangeRate.toString() 
+        : (currentRate?.rate ? currentRate.rate.toString() : ""),
+      targetMargin: product.targetMargin != null 
+        ? product.targetMargin.toString() 
+        : (currencySettings?.minProtectionMargin ? currencySettings.minProtectionMargin.toString() : "20"),
     });
     setErrors({});
     setAutoSaveActive(true);
@@ -280,6 +317,11 @@ export default function Products() {
         unitType: form.unitType,
         productImageUrl: form.productImageUrl?.trim() || undefined,
         lowStockThreshold: form.lowStockThreshold ? parseInt(form.lowStockThreshold, 10) : 10,
+        pricingMode: form.pricingMode || "fixed",
+        currency: form.currency || "USD",
+        baseCost: form.baseCost ? parseFloat(form.baseCost) : undefined,
+        purchaseExchangeRate: form.purchaseExchangeRate ? parseFloat(form.purchaseExchangeRate) : undefined,
+        targetMargin: form.targetMargin ? parseFloat(form.targetMargin) : undefined,
       };
 
       if (editItem) {
@@ -351,6 +393,13 @@ export default function Products() {
   const modalSell = parseFloat(form.sellingPrice || 0);
   const modalProfit = modalSell - modalCost;
   const modalMargin = modalSell > 0 ? ((modalProfit / modalSell) * 100).toFixed(1) : 0;
+
+  // Modal currency preview calculations
+  const previewRate = parseFloat(currentRate?.rate || form.purchaseExchangeRate || 0);
+  const previewBaseCost = parseFloat(form.baseCost || 0);
+  const previewRounding = currencySettings?.roundingRule || "none";
+  const previewReplacement = calculateReplacementCost(previewBaseCost, previewRate, previewRounding);
+  const previewSuggested = calculateSuggestedSellingPrice(previewReplacement, parseFloat(form.targetMargin || 20), previewRounding);
 
   return (
     <div className={styles.page}>
@@ -585,6 +634,27 @@ export default function Products() {
                   {product.productName}
                 </h3>
 
+                {/* Below Replacement Cost Alert */}
+                {(product.isBelowReplacementCost || (product.currentReplacementCost && product.sellingPrice < product.currentReplacementCost)) && (
+                  <div style={{
+                    marginTop: 6,
+                    marginBottom: 6,
+                    padding: '5px 8px',
+                    background: '#FEF2F2',
+                    border: '1px solid #FCA5A5',
+                    borderRadius: 6,
+                    color: '#991B1B',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 5
+                  }}>
+                    <AlertTriangle size={13} style={{ flexShrink: 0, color: '#DC2626' }} />
+                    <span>⚠️ Below Replacement Cost ({formatCurrency(product.currentReplacementCost)})</span>
+                  </div>
+                )}
+
                 {/* Meta Row: Category & Unit */}
                 <div className={styles.metaRow}>
                   <span className="badge badge-gray" style={{ fontSize: '11px', textTransform: 'capitalize' }}>
@@ -593,6 +663,11 @@ export default function Products() {
                   <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                     Unit: <strong>{product.unitType || 'pieces'}</strong>
                   </span>
+                  {product.pricingMode && product.pricingMode !== 'fixed' && (
+                    <span className="badge badge-yellow" style={{ fontSize: '10.5px' }}>
+                      {product.currency || 'USD'} Linked
+                    </span>
+                  )}
                   {product.barcode && (
                     <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                       <Barcode size={12} /> {product.barcode}
@@ -603,9 +678,22 @@ export default function Products() {
                 {/* Pricing Box */}
                 <div className={styles.priceRow}>
                   <div className={styles.priceItem}>
-                    <span className={styles.priceLabel}>Cost</span>
+                    <span className={styles.priceLabel}>
+                      {product.pricingMode && product.pricingMode !== 'fixed' ? 'Hist. Cost' : 'Cost'}
+                    </span>
                     <span className={styles.priceValue}>{formatCurrency(product.costPrice || 0)}</span>
                   </div>
+                  {product.currentReplacementCost && product.pricingMode && product.pricingMode !== 'fixed' && (
+                    <>
+                      <span className={styles.priceDivider}>/</span>
+                      <div className={styles.priceItem}>
+                        <span className={styles.priceLabel} style={{ color: '#D97706' }}>Repl. Cost</span>
+                        <span className={styles.priceValue} style={{ color: '#D97706' }}>
+                          {formatCurrency(product.currentReplacementCost)}
+                        </span>
+                      </div>
+                    </>
+                  )}
                   <span className={styles.priceDivider}>/</span>
                   <div className={styles.priceItem}>
                     <span className={styles.priceLabel} style={{ color: 'var(--green-primary)' }}>Selling Price</span>
@@ -775,7 +863,7 @@ export default function Products() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div className="form-group">
                   <label className="form-label" htmlFor="cost-price">
-                    Cost Price (RWF)
+                    Cost Price ({currencySettings?.sellingCurrency || 'Local'})
                   </label>
                   <input
                     id="cost-price"
@@ -799,7 +887,7 @@ export default function Products() {
 
                 <div className="form-group">
                   <label className="form-label" htmlFor="selling-price">
-                    Selling Price (RWF)
+                    Selling Price ({currencySettings?.sellingCurrency || 'Local'})
                   </label>
                   <input
                     id="selling-price"
@@ -820,6 +908,174 @@ export default function Products() {
                     <span className="form-error" role="alert">{errors.sellingPrice}</span>
                   )}
                 </div>
+              </div>
+
+              {/* Currency Protection & Pricing Strategy */}
+              <div style={{
+                background: '#F9FAFB',
+                border: '1px solid #E5E7EB',
+                borderRadius: '12px',
+                padding: '14px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <label className="form-label" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700 }}>
+                    <ShieldAlert size={16} color="var(--green-primary)" />
+                    Pricing Strategy & Currency Protection
+                  </label>
+                  <span className="badge badge-gray" style={{ fontSize: '10.5px' }}>
+                    {currencySettings?.isEnabled ? 'Protection Active' : 'Standard'}
+                  </span>
+                </div>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <select
+                    className="form-input"
+                    value={form.pricingMode || 'fixed'}
+                    onChange={(e) => setForm(prev => ({ ...prev, pricingMode: e.target.value }))}
+                  >
+                    <option value="fixed">Fixed Price (Manual pricing in {currencySettings?.sellingCurrency || 'Local Currency'})</option>
+                    <option value="currency_linked">Currency-Linked (Auto-recalculates cost & suggested price via exchange rate)</option>
+                    <option value="replacement_protected">Replacement-Protected (Alerts when price drops below replacement cost)</option>
+                  </select>
+                </div>
+
+                {form.pricingMode !== 'fixed' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '4px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontSize: '12px' }}>Purchase Currency</label>
+                        <select
+                          className="form-input"
+                          value={form.currency || 'USD'}
+                          onChange={(e) => setForm(prev => ({ ...prev, currency: e.target.value }))}
+                        >
+                          {SUPPORTED_CURRENCIES.map(curr => (
+                            <option key={curr.code} value={curr.code}>{curr.code} - {curr.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontSize: '12px' }}>Base Cost ({form.currency || 'USD'})</label>
+                        <input
+                          type="number"
+                          step="any"
+                          min="0"
+                          className="form-input"
+                          placeholder="e.g. 10.00"
+                          value={form.baseCost}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setForm(prev => {
+                              const newForm = { ...prev, baseCost: val };
+                              const rate = parseFloat(newForm.purchaseExchangeRate || currentRate?.rate || 0);
+                              if (rate > 0 && val) {
+                                newForm.costPrice = (parseFloat(val) * rate).toFixed(2);
+                              }
+                              return newForm;
+                            });
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontSize: '12px' }}>
+                          Purchase Exchange Rate ({currencySettings?.sellingCurrency || 'Local'}/{form.currency || 'USD'})
+                        </label>
+                        <input
+                          type="number"
+                          step="any"
+                          min="0"
+                          className="form-input"
+                          placeholder={currentRate?.rate ? `Current: ${currentRate.rate}` : "e.g. 3500"}
+                          value={form.purchaseExchangeRate}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setForm(prev => {
+                              const newForm = { ...prev, purchaseExchangeRate: val };
+                              const base = parseFloat(newForm.baseCost || 0);
+                              if (base > 0 && val) {
+                                newForm.costPrice = (base * parseFloat(val)).toFixed(2);
+                              }
+                              return newForm;
+                            });
+                          }}
+                        />
+                      </div>
+
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontSize: '12px' }}>Target Margin %</label>
+                        <input
+                          type="number"
+                          step="1"
+                          min="0"
+                          max="500"
+                          className="form-input"
+                          placeholder="e.g. 20"
+                          value={form.targetMargin}
+                          onChange={(e) => setForm(prev => ({ ...prev, targetMargin: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Live Preview Box */}
+                    {parseFloat(form.baseCost || 0) > 0 && (
+                      <div style={{
+                        background: '#EEF2FF',
+                        border: '1px solid #C7D2FE',
+                        borderRadius: '8px',
+                        padding: '10px 12px',
+                        fontSize: '12px'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <span style={{ color: '#4B5563' }}>Current Market Rate:</span>
+                          <strong>{currentRate?.rate ? `${currentRate.rate} ${currencySettings?.sellingCurrency || 'Local'}/${form.currency || 'USD'}` : 'Not set'}</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <span style={{ color: '#4B5563' }}>Current Replacement Cost:</span>
+                          <strong style={{ color: '#1E40AF' }}>{formatCurrency(previewReplacement)}</strong>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, paddingTop: 6, borderTop: '1px dashed #C7D2FE' }}>
+                          <div>
+                            <span style={{ color: '#4B5563', display: 'block' }}>Suggested Selling Price:</span>
+                            <span style={{ color: '#047857', fontWeight: 800, fontSize: '14px' }}>{formatCurrency(previewSuggested)}</span>
+                          </div>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => setForm(prev => ({ ...prev, sellingPrice: previewSuggested.toString() }))}
+                            style={{ fontSize: '11px', padding: '4px 8px' }}
+                          >
+                            Apply Suggested Price
+                          </button>
+                        </div>
+
+                        {parseFloat(form.sellingPrice || 0) > 0 && parseFloat(form.sellingPrice) < previewReplacement && (
+                          <div style={{
+                            marginTop: 8,
+                            padding: '6px 8px',
+                            background: '#FEE2E2',
+                            border: '1px solid #F87171',
+                            borderRadius: '6px',
+                            color: '#991B1B',
+                            fontWeight: 700,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6
+                          }}>
+                            <AlertTriangle size={14} color="#DC2626" />
+                            Warning: Selling price is below replacement cost!
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Real-time Profit Preview */}

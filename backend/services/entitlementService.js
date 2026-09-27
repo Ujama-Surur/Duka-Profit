@@ -15,6 +15,7 @@ const ALL_FEATURES = [
   'MULTI_USER',
   'ADVANCED_REPORTS',
   'CLOUD_BACKUP',
+  'CURRENCY_PROTECTION',
 ];
 
 const DEFAULT_FREE_FEATURES = ['PRODUCTS', 'BASIC_INVENTORY', 'SALES'];
@@ -120,6 +121,7 @@ async function getUserEntitlements(userId) {
         'PROFIT_REPORTS',
         'FINANCE',
         'EXPORT',
+        'CURRENCY_PROTECTION',
       ],
       isEntitled: true,
     };

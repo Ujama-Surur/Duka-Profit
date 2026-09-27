@@ -222,6 +222,7 @@ app.use("/api/plans", require("./routes/plans"));
 app.use("/api/subscriptions", require("./routes/subscriptions"));
 app.use("/api/payments", require("./routes/payments"));
 app.use("/api/daily-reports", require("./routes/daily-reports"));
+app.use("/api/currency", require("./routes/currency"));
 
 // Serve frontend in production
 if (process.env.NODE_ENV === "production") {

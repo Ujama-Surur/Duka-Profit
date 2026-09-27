@@ -5,7 +5,7 @@ import { format, subDays, startOfWeek, startOfMonth } from 'date-fns';
 import toast from 'react-hot-toast';
 import api, { formatCurrency, formatDate, offlineData } from '../utils/api';
 import styles from './Reports.module.css';
-import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, BarChart3, FileText, Download, Trophy, CreditCard, Banknote, Smartphone, Package, Ruler, ClipboardList, FileSpreadsheet, Building, User } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, BarChart3, FileText, Download, Trophy, CreditCard, Banknote, Smartphone, Package, Ruler, ClipboardList, FileSpreadsheet, Building, User, Info, AlertTriangle } from 'lucide-react';
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload?.length) {
@@ -30,7 +30,31 @@ export default function Reports() {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
 
-  useEffect(() => { loadReport(); }, [period]);
+  const [reportType, setReportType] = useState('sales'); // 'sales' or 'currency'
+  const [currencyData, setCurrencyData] = useState(null);
+  const [currencyLoading, setCurrencyLoading] = useState(false);
+
+  useEffect(() => { 
+    if (reportType === 'sales') {
+      loadReport(); 
+    } else {
+      loadCurrencyReport();
+    }
+  }, [period, reportType]);
+
+  const loadCurrencyReport = async () => {
+    setCurrencyLoading(true);
+    try {
+      const { data: res } = await api.get('/currency/impact-report');
+      setCurrencyData(res);
+      await offlineData.set('currency_impact_report', res);
+    } catch {
+      const cached = await offlineData.get('currency_impact_report');
+      if (cached) setCurrencyData(cached);
+    } finally {
+      setCurrencyLoading(false);
+    }
+  };
 
   const loadReport = async () => {
     setLoading(true);
@@ -158,6 +182,145 @@ export default function Reports() {
     toast.success('CSV exported!');
   };
 
+  const exportCurrencyPDF = async () => {
+    if (!currencyData) return;
+    setExporting(true);
+    try {
+      const { jsPDF } = await import('jspdf');
+      const autoTable = (await import('jspdf-autotable')).default;
+      const doc = new jsPDF();
+
+      doc.setFillColor(22, 163, 74);
+      doc.rect(0, 0, 210, 35, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(20);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Duka Profit — Currency Impact & Valuation', 14, 22);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Generated: ${new Date().toLocaleDateString()} | Active Rate: 1 ${currencyData.baseCurrency} = ${currencyData.activeRate ? Number(currencyData.activeRate).toLocaleString() : 'N/A'} ${currencyData.sellingCurrency}`, 14, 30);
+
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(13);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Valuation Summary', 14, 46);
+
+      const summaryData = [
+        ['Base Currency / Selling Currency', `${currencyData.baseCurrency} / ${currencyData.sellingCurrency}`],
+        ['Market Exchange Rate', `1 ${currencyData.baseCurrency} = ${Number(currencyData.activeRate || 0).toLocaleString()} ${currencyData.sellingCurrency}`],
+        ['Historical Inventory Cost Valuation', formatCurrency(currencyData.valuation?.historicalCostValue || 0, currencyData.sellingCurrency)],
+        ['Current Replacement Inventory Valuation', formatCurrency(currencyData.valuation?.replacementCostValue || 0, currencyData.sellingCurrency)],
+        ['Inventory Valuation Gap (Restock Growth)', `+${formatCurrency(currencyData.valuation?.valueGap || 0, currencyData.sellingCurrency)}`],
+        ['Products Below Replacement Cost', String(currencyData.belowReplacementCount || 0)],
+        ['Total Replacement Deficit (Sales Shortfall)', `-${formatCurrency(currencyData.valuation?.replacementDeficit || 0, currencyData.sellingCurrency)}`],
+      ];
+
+      autoTable(doc, {
+        startY: 50,
+        head: [['Metric', 'Valuation']],
+        body: summaryData,
+        headStyles: { fillColor: [22, 163, 74] },
+        alternateRowStyles: { fillColor: [240, 253, 244] },
+        margin: { left: 14, right: 14 },
+      });
+
+      if (currencyData.belowReplacementProducts?.length > 0) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(13);
+        doc.text('Products Below Replacement Cost', 14, doc.lastAutoTable.finalY + 14);
+
+        const rows = currencyData.belowReplacementProducts.map(p => [
+          p.productName,
+          String(p.stock),
+          formatCurrency(p.costPrice, currencyData.sellingCurrency),
+          formatCurrency(p.sellingPrice, currencyData.sellingCurrency),
+          formatCurrency(p.replacementCost, currencyData.sellingCurrency),
+          `-${formatCurrency(p.gapPerUnit, currencyData.sellingCurrency)}`,
+          `-${formatCurrency(p.totalGap, currencyData.sellingCurrency)}`,
+          formatCurrency(p.suggestedSellingPrice || 0, currencyData.sellingCurrency),
+        ]);
+
+        autoTable(doc, {
+          startY: doc.lastAutoTable.finalY + 18,
+          head: [['Product', 'Stock', 'Hist. Cost', 'Sell Price', 'Replacement', 'Gap/Unit', 'Total Deficit', 'Suggested']],
+          body: rows,
+          headStyles: { fillColor: [220, 38, 38] },
+          alternateRowStyles: { fillColor: [254, 242, 242] },
+          margin: { left: 14, right: 14 },
+          styles: { fontSize: 8 },
+        });
+      }
+
+      doc.save(`duka-currency-impact-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+      toast.success('Currency Impact PDF exported!');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to export PDF');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const exportCurrencyCSV = () => {
+    if (!currencyData?.belowReplacementProducts?.length) {
+      toast('No products below replacement cost to export.', { icon: <Info size={16} /> });
+      return;
+    }
+    const headers = ['Product', 'Stock', 'Historical Cost', 'Current Selling Price', 'Replacement Cost', 'Gap Per Unit', 'Total Deficit', 'Suggested Price'];
+    const rows = currencyData.belowReplacementProducts.map(p => [
+      p.productName,
+      p.stock,
+      p.costPrice,
+      p.sellingPrice,
+      p.replacementCost,
+      p.gapPerUnit,
+      p.totalGap,
+      p.suggestedSellingPrice || 0,
+    ]);
+    const csv = [headers, ...rows].map(row => row.map(v => `"${v}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `duka-currency-deficit-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Currency Impact CSV exported!');
+  };
+
+  const exportPriceAuditCSV = async () => {
+    try {
+      const { data: res } = await api.get('/currency/price-history?limit=200');
+      if (!res?.items?.length) {
+        toast('No price change audit logs found yet.', { icon: <Info size={16} /> });
+        return;
+      }
+      const headers = ['Date', 'Product', 'Old Price', 'New Price', 'Historical Cost', 'Replacement Cost', 'Exchange Rate', 'Reason', 'User'];
+      const rows = res.items.map(i => [
+        formatDate(i.changedAt),
+        i.productName,
+        i.previousSellingPrice,
+        i.newSellingPrice,
+        i.costPrice || 0,
+        i.replacementCost || 0,
+        i.exchangeRate || 1,
+        i.reason,
+        i.changedBy?.name || 'User',
+      ]);
+      const csv = [headers, ...rows].map(row => row.map(v => `"${v}"`).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `duka-price-change-audit-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Price Audit Log exported!');
+    } catch (err) {
+      toast.error('Failed to export audit history');
+    }
+  };
+
   const PERIODS = [
     { key: 'day', label: 'Today' },
     { key: 'week', label: 'This Week' },
@@ -173,31 +336,212 @@ export default function Reports() {
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:12}}>
           <div>
             <h1 className="page-title" style={{display:'flex',alignItems:'center',gap:8}}><TrendingUp size={24} /> {t('reports')}</h1>
-            <p className="page-subtitle">Analyze your business performance</p>
+            <p className="page-subtitle">Analyze business performance, cash flow, and replacement inventory valuation</p>
           </div>
-          <div style={{display:'flex',gap:10}}>
-            <button className="btn btn-outline btn-sm" onClick={exportCSV} disabled={exporting}>
-              <FileSpreadsheet size={16} style={{marginRight:6}} /> {t('exportCSV')}
-            </button>
-            <button className="btn btn-primary btn-sm" onClick={exportPDF} disabled={exporting}>
-              {exporting ? '...' : <><FileText size={16} style={{marginRight:6}} /> {t('exportPDF')}</>}
-            </button>
+
+          <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+            {reportType === 'sales' ? (
+              <>
+                <button className="btn btn-outline btn-sm" onClick={exportCSV} disabled={exporting}>
+                  <FileSpreadsheet size={16} style={{marginRight:6}} /> {t('exportCSV')}
+                </button>
+                <button className="btn btn-primary btn-sm" onClick={exportPDF} disabled={exporting}>
+                  {exporting ? '...' : <><FileText size={16} style={{marginRight:6}} /> {t('exportPDF')}</>}
+                </button>
+              </>
+            ) : (
+              <>
+                <button className="btn btn-outline btn-sm" onClick={exportPriceAuditCSV} disabled={exporting} title="Export audit trail of all price changes">
+                  <FileSpreadsheet size={16} style={{marginRight:6}} /> Price Audit CSV
+                </button>
+                <button className="btn btn-outline btn-sm" onClick={exportCurrencyCSV} disabled={exporting}>
+                  <FileSpreadsheet size={16} style={{marginRight:6}} /> Deficit CSV
+                </button>
+                <button className="btn btn-primary btn-sm" onClick={exportCurrencyPDF} disabled={exporting}>
+                  {exporting ? '...' : <><FileText size={16} style={{marginRight:6}} /> Currency PDF</>}
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Period Tabs */}
-      <div className={styles.periodTabs}>
-        {PERIODS.map(p => (
-          <button
-            key={p.key}
-            className={`${styles.periodTab} ${period === p.key ? styles.periodTabActive : ''}`}
-            onClick={() => setPeriod(p.key)}
-          >
-            {p.label}
-          </button>
-        ))}
+      {/* Main Report Category Switcher */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: '1px solid var(--border)', paddingBottom: '12px' }}>
+        <button
+          type="button"
+          className={`btn btn-sm ${reportType === 'sales' ? 'btn-primary' : 'btn-ghost'}`}
+          onClick={() => setReportType('sales')}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+        >
+          <BarChart3 size={16} />
+          <span>Sales & Cash Flow</span>
+        </button>
+
+        <button
+          type="button"
+          className={`btn btn-sm ${reportType === 'currency' ? 'btn-primary' : 'btn-ghost'}`}
+          onClick={() => setReportType('currency')}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+        >
+          <DollarSign size={16} />
+          <span>Currency Impact & Valuation</span>
+        </button>
       </div>
+
+      {reportType === 'currency' ? (
+        /* Currency Impact & Valuation View */
+        currencyLoading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0' }}>
+            <div className="spinner" />
+          </div>
+        ) : !currencyData ? (
+          <div className="card" style={{ padding: '40px', textAlign: 'center' }}>
+            Failed to load currency impact data. Please ensure Currency Protection is enabled in Settings.
+          </div>
+        ) : (
+          <div>
+            {/* Valuation Metric Cards */}
+            <div className={styles.summaryGrid} style={{ marginBottom: '24px' }}>
+              <SummaryCard
+                icon={<DollarSign size={22} />}
+                label="Exchange Rate"
+                value={`1 ${currencyData.baseCurrency} = ${currencyData.activeRate ? Number(currencyData.activeRate).toLocaleString() : '—'} ${currencyData.sellingCurrency}`}
+                color="blue"
+              />
+              <SummaryCard
+                icon={<TrendingDown size={22} />}
+                label="Historical Valuation (Cost)"
+                value={formatCurrency(currencyData.valuation?.historicalCostValue || 0, currencyData.sellingCurrency)}
+                color="yellow"
+              />
+              <SummaryCard
+                icon={<TrendingUp size={22} />}
+                label="Replacement Valuation"
+                value={formatCurrency(currencyData.valuation?.replacementCostValue || 0, currencyData.sellingCurrency)}
+                color="green"
+                highlight
+              />
+              <SummaryCard
+                icon={<BarChart3 size={22} />}
+                label="Valuation Growth Gap"
+                value={`+${formatCurrency(currencyData.valuation?.valueGap || 0, currencyData.sellingCurrency)}`}
+                color="green"
+              />
+              <SummaryCard
+                icon={<AlertTriangle size={22} />}
+                label="Below Replacement"
+                value={currencyData.belowReplacementCount || 0}
+                suffix="products"
+                color={currencyData.belowReplacementCount > 0 ? "red" : "green"}
+              />
+            </div>
+
+            {/* Replacement Deficit Banner */}
+            {currencyData.valuation?.replacementDeficit > 0 && (
+              <div
+                className="card"
+                style={{
+                  background: '#FEF2F2',
+                  border: '1.5px solid #FCA5A5',
+                  padding: '16px 20px',
+                  marginBottom: '24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '16px',
+                }}
+              >
+                <div>
+                  <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#991B1B', margin: 0 }}>
+                    ⚠️ Potential Replacement Deficit: -{formatCurrency(currencyData.valuation?.replacementDeficit, currencyData.sellingCurrency)}
+                  </h3>
+                  <p style={{ fontSize: '13px', color: '#B91C1C', margin: '4px 0 0' }}>
+                    If current inventory is sold at today's selling prices without adjustment, you will face this total cash shortfall when restocking at current exchange rates.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={() => window.location.hash = '#/pricing/review'}
+                  style={{ backgroundColor: '#DC2626', borderColor: '#DC2626' }}
+                >
+                  Review Price Changes
+                </button>
+              </div>
+            )}
+
+            {/* Below Replacement Products Table */}
+            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, margin: 0 }}>
+                  Products Below Replacement Cost ({currencyData.belowReplacementProducts?.length || 0})
+                </h3>
+              </div>
+
+              {(!currencyData.belowReplacementProducts || currencyData.belowReplacementProducts.length === 0) ? (
+                <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  ✅ Excellent! No products are currently priced below replacement cost.
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+                    <thead>
+                      <tr style={{ background: 'var(--bg-subtle)', borderBottom: '1px solid var(--border)' }}>
+                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>Product</th>
+                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>Units in Stock</th>
+                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>Historical Cost</th>
+                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>Selling Price</th>
+                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>Replacement Cost</th>
+                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>Deficit / Unit</th>
+                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>Total Deficit</th>
+                        <th style={{ padding: '12px 16px', fontWeight: 700 }}>Suggested Price</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {currencyData.belowReplacementProducts.map((p, idx) => (
+                        <tr key={p._id || idx} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={{ padding: '12px 16px', fontWeight: 700 }}>{p.productName}</td>
+                          <td style={{ padding: '12px 16px' }}>{p.stock}</td>
+                          <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)' }}>{formatCurrency(p.costPrice, currencyData.sellingCurrency)}</td>
+                          <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)' }}>{formatCurrency(p.sellingPrice, currencyData.sellingCurrency)}</td>
+                          <td style={{ padding: '12px 16px', fontWeight: 800, color: '#DC2626', fontFamily: 'var(--font-mono)' }}>
+                            {formatCurrency(p.replacementCost, currencyData.sellingCurrency)}
+                          </td>
+                          <td style={{ padding: '12px 16px', color: '#DC2626', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                            -{formatCurrency(p.gapPerUnit, currencyData.sellingCurrency)}
+                          </td>
+                          <td style={{ padding: '12px 16px', color: '#DC2626', fontWeight: 800, fontFamily: 'var(--font-mono)' }}>
+                            -{formatCurrency(p.totalGap, currencyData.sellingCurrency)}
+                          </td>
+                          <td style={{ padding: '12px 16px', fontWeight: 800, color: 'var(--green-primary)', fontFamily: 'var(--font-mono)' }}>
+                            {formatCurrency(p.suggestedSellingPrice || 0, currencyData.sellingCurrency)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      ) : (
+        /* Standard Sales Period Report View */
+        <>
+          {/* Period Tabs */}
+          <div className={styles.periodTabs}>
+            {PERIODS.map(p => (
+              <button
+                key={p.key}
+                className={`${styles.periodTab} ${period === p.key ? styles.periodTabActive : ''}`}
+                onClick={() => setPeriod(p.key)}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
 
       {loading ? (
         <div style={{display:'flex',justifyContent:'center',padding:'60px 0'}}>
@@ -376,7 +720,9 @@ export default function Reports() {
           </div>
         </>
       )}
-    </div>
+    </>
+  )}
+</div>
   );
 }
 

@@ -25,6 +25,20 @@ const orderItemSchema = new mongoose.Schema({
     required: true,
     min: [0, 'Selling price cannot be negative'],
   },
+  purchaseCurrency: {
+    type: String,
+    default: null,
+    uppercase: true,
+    trim: true,
+  },
+  baseCost: {
+    type: Number,
+    default: null,
+  },
+  exchangeRate: {
+    type: Number,
+    default: 1,
+  },
   barcode: {
     type: String,
     trim: true,

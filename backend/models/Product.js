@@ -72,20 +72,88 @@ const productSchema = new mongoose.Schema({
   expirationDate: {
     type: Date,
   },
+  // Currency Protection & Dynamic Pricing fields
+  pricingMode: {
+    type: String,
+    enum: ['fixed', 'currency_linked', 'replacement_protected'],
+    default: 'fixed',
+    index: true,
+  },
+  currency: {
+    type: String,
+    default: null,
+    uppercase: true,
+    trim: true,
+  },
+  baseCost: {
+    type: Number,
+    default: 0,
+    min: [0, 'Base cost cannot be negative'],
+  },
+  purchaseExchangeRate: {
+    type: Number,
+    default: 1,
+    min: [0.000001, 'Purchase exchange rate must be positive'],
+  },
+  currentReplacementCost: {
+    type: Number,
+    default: 0,
+    min: [0, 'Current replacement cost cannot be negative'],
+  },
+  suggestedSellingPrice: {
+    type: Number,
+    default: 0,
+    min: [0, 'Suggested selling price cannot be negative'],
+  },
+  targetMargin: {
+    type: Number,
+    default: 15,
+    min: [0, 'Target margin cannot be negative'],
+  },
+  priceReviewRequired: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
+  lastPriceReviewAt: {
+    type: Date,
+    default: null,
+  },
 }, {
   timestamps: true,
   toJSON: { virtuals: true },
+  toObject: { virtuals: true },
 });
 
-// Virtual: profit per unit
+// Virtual: profit per unit (historical accounting)
 productSchema.virtual('profitPerUnit').get(function () {
   return this.sellingPrice - this.costPrice;
 });
 
-// Virtual: profit margin %
+// Virtual: profit margin % (historical accounting)
 productSchema.virtual('profitMargin').get(function () {
   if (this.sellingPrice === 0) return 0;
   return (((this.sellingPrice - this.costPrice) / this.sellingPrice) * 100).toFixed(1);
+});
+
+// Virtual: replacement gap (positive when selling price is below replacement cost)
+productSchema.virtual('replacementGap').get(function () {
+  if (!this.currentReplacementCost || this.sellingPrice >= this.currentReplacementCost) {
+    return 0;
+  }
+  return this.currentReplacementCost - this.sellingPrice;
+});
+
+// Virtual: is below replacement cost
+productSchema.virtual('isBelowReplacementCost').get(function () {
+  if (this.pricingMode === 'fixed' || !this.currentReplacementCost) return false;
+  return this.sellingPrice < this.currentReplacementCost;
+});
+
+// Virtual: replacement-adjusted margin % (distinct from accounting profit margin)
+productSchema.virtual('replacementAdjustedMargin').get(function () {
+  if (!this.sellingPrice || !this.currentReplacementCost) return null;
+  return (((this.sellingPrice - this.currentReplacementCost) / this.sellingPrice) * 100).toFixed(1);
 });
 
 // Aliases for import/export compatibility (name, price, expiryDate)
@@ -119,5 +187,6 @@ productSchema.virtual('daysUntilExpiration').get(function () {
 // Compound index for fast queries per user
 productSchema.index({ userId: 1, productName: 1 });
 productSchema.index({ userId: 1, barcode: 1 }, { unique: true, sparse: true });
+productSchema.index({ userId: 1, priceReviewRequired: 1 });
 
 module.exports = mongoose.model('Product', productSchema);

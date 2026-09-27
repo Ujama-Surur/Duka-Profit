@@ -39,6 +39,8 @@ const Finance = lazy(() => import("./pages/Finance"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const Subscription = lazy(() => import("./pages/Subscription"));
 const PaymentVerify = lazy(() => import("./pages/PaymentVerify"));
+const PriceReview = lazy(() => import("./pages/PriceReview"));
+const ExchangeRates = lazy(() => import("./pages/ExchangeRates"));
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -69,6 +71,16 @@ function PremiumRoute({ children }) {
   if (!user) return <Navigate to="/login" replace />;
   // Allow if user is admin, has active legacy license, or has active SaaS subscription / checkout entitlement
   if (user.role !== "admin" && !isSubscriptionActive && !hasEntitlement("CHECKOUT")) {
+    return <UpgradePremiumScreen />;
+  }
+  return children;
+}
+
+function CurrencyProtectionRoute({ children }) {
+  const { user, loading, isSubscriptionActive, hasEntitlement } = useAuth();
+  if (loading) return <LoadingScreen />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== "admin" && !isSubscriptionActive && !hasEntitlement("CURRENCY_PROTECTION") && !hasEntitlement("CHECKOUT")) {
     return <UpgradePremiumScreen />;
   }
   return children;
@@ -221,6 +233,16 @@ export default function App() {
                 } />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/daily-report" element={<DailyReport />} />
+                <Route path="/pricing/review" element={
+                  <CurrencyProtectionRoute>
+                    <PriceReview />
+                  </CurrencyProtectionRoute>
+                } />
+                <Route path="/pricing/rates" element={
+                  <CurrencyProtectionRoute>
+                    <ExchangeRates />
+                  </CurrencyProtectionRoute>
+                } />
                 <Route path="/subscription" element={<Subscription />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route

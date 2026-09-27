@@ -50,6 +50,9 @@ router.post('/', async (req, res, next) => {
       quantity: parseInt(item.quantity) || 1,
       buyingPrice: parseFloat(item.buyingPrice) || 0,
       sellingPrice: parseFloat(item.sellingPrice) || 0,
+      purchaseCurrency: item.purchaseCurrency ? String(item.purchaseCurrency).toUpperCase() : undefined,
+      baseCost: item.baseCost ? parseFloat(item.baseCost) : undefined,
+      exchangeRate: item.exchangeRate ? parseFloat(item.exchangeRate) : 1,
       barcode: item.barcode,
       expiryDate: item.expiryDate ? new Date(item.expiryDate) : undefined,
     }));
@@ -79,6 +82,9 @@ router.put('/:id/approve', async (req, res, next) => {
       return res.status(400).json({ message: `Cannot approve order with status: ${order.status}` });
     }
 
+    const exchangeRateService = require('../services/exchangeRateService');
+    const settings = await exchangeRateService.getCurrencySettings(req.user._id);
+
     // Process order items to update products stock and prices
     for (const item of order.items) {
       const product = await Product.findOne({ _id: item.product, userId: req.user._id });
@@ -87,6 +93,31 @@ router.put('/:id/approve', async (req, res, next) => {
         product.quantity = product.stock; // keep in sync
         product.costPrice = item.buyingPrice;
         product.sellingPrice = item.sellingPrice;
+
+        if (item.purchaseCurrency) product.currency = item.purchaseCurrency;
+        if (item.baseCost) product.baseCost = item.baseCost;
+        if (item.exchangeRate) product.purchaseExchangeRate = item.exchangeRate;
+
+        // Recalculate replacement cost if product has baseCost
+        if (product.baseCost > 0) {
+          const currentRate = await exchangeRateService.getCurrentRate(
+            req.user._id,
+            product.currency || 'USD',
+            settings.sellingCurrency || 'SSP'
+          );
+          const effectiveRate = currentRate?.rate || product.purchaseExchangeRate || 1;
+          product.currentReplacementCost = exchangeRateService.roundPrice(
+            product.baseCost * effectiveRate,
+            settings.roundingRule
+          );
+          product.suggestedSellingPrice = exchangeRateService.roundPrice(
+            product.currentReplacementCost * (1 + (product.targetMargin || 15) / 100),
+            settings.roundingRule
+          );
+          if (product.pricingMode !== 'fixed') {
+            product.priceReviewRequired = product.sellingPrice < product.currentReplacementCost;
+          }
+        }
         
         if (item.expiryDate) {
           product.expirationDate = item.expiryDate;

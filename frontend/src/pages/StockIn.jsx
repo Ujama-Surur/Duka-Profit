@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import api, { formatCurrency, offlineData } from '../utils/api';
+import { SUPPORTED_CURRENCIES, calculateReplacementCost } from '../utils/currencyUtils';
 import BarcodeScanner from '../components/BarcodeScanner';
 import RemoteScannerPairing from '../components/RemoteScannerPairing';
-import { Package, Camera, Smartphone, Info, CheckCircle2, Utensils, Shirt, Home, Plus } from 'lucide-react';
+import { Package, Camera, Smartphone, Info, CheckCircle2, Utensils, Shirt, Home, Plus, AlertTriangle, ShieldAlert, DollarSign } from 'lucide-react';
 
 const CATEGORIES = ['food', 'electronics', 'clothing', 'household', 'other'];
 
@@ -16,7 +17,11 @@ const defaultForm = {
   quantity: '', 
   expirationDate: '', 
   lowStockThreshold: '10', 
-  category: 'other' 
+  category: 'other',
+  pricingMode: 'fixed',
+  currency: 'USD',
+  baseCost: '',
+  purchaseExchangeRate: '',
 };
 
 export default function StockIn() {
@@ -31,6 +36,25 @@ export default function StockIn() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [stockUpdateQty, setStockUpdateQty] = useState(1);
   const [showRemoteScanner, setShowRemoteScanner] = useState(false);
+  const [currencySettings, setCurrencySettings] = useState(null);
+  const [currentRate, setCurrentRate] = useState(null);
+  const [batchBaseCost, setBatchBaseCost] = useState('');
+  const [batchExchangeRate, setBatchExchangeRate] = useState('');
+  const [updateBatchCost, setUpdateBatchCost] = useState(false);
+
+  useEffect(() => {
+    const loadCurrencyInfo = async () => {
+      try {
+        const [settingsRes, rateRes] = await Promise.all([
+          api.get('/currency/settings').catch(() => ({ data: null })),
+          api.get('/currency/rate/current').catch(() => ({ data: null })),
+        ]);
+        if (settingsRes?.data) setCurrencySettings(settingsRes.data);
+        if (rateRes?.data?.rate) setCurrentRate(rateRes.data);
+      } catch {}
+    };
+    loadCurrencyInfo();
+  }, []);
 
   const handleBarcodeDetected = async (barcodeValue) => {
     const barcode = String(barcodeValue || '').trim();
@@ -50,18 +74,31 @@ export default function StockIn() {
         const product = data.product;
         setExistingProduct(product);
         setStockUpdateQty(1);
+        setBatchBaseCost(product.baseCost != null ? product.baseCost.toString() : '');
+        setBatchExchangeRate(currentRate?.rate ? currentRate.rate.toString() : (product.purchaseExchangeRate != null ? product.purchaseExchangeRate.toString() : ''));
+        setUpdateBatchCost(false);
         setShowAddForm(false);
         toast.success('Product found! Ready to add stock.');
       } else {
         setExistingProduct(null);
-        setForm((prev) => ({ ...prev, barcode }));
+        setForm({
+          ...defaultForm,
+          barcode,
+          currency: currencySettings?.baseCurrency || 'USD',
+          purchaseExchangeRate: currentRate?.rate ? currentRate.rate.toString() : '',
+        });
         setShowAddForm(true);
         toast('Product not found. Enter details to create.', { icon: <Info size={16} color="var(--green-primary)" /> });
       }
     } catch (err) {
       if (err.response?.status === 404) {
         setExistingProduct(null);
-        setForm((prev) => ({ ...prev, barcode }));
+        setForm({
+          ...defaultForm,
+          barcode,
+          currency: currencySettings?.baseCurrency || 'USD',
+          purchaseExchangeRate: currentRate?.rate ? currentRate.rate.toString() : '',
+        });
         setShowAddForm(true);
         toast('Product not found. Enter details to create.', { icon: <Info size={16} color="var(--green-primary)" /> });
       } else {
@@ -90,14 +127,25 @@ export default function StockIn() {
     setSaving(true);
     try {
       const newStock = existingProduct.stock + stockUpdateQty;
-      const { data } = await api.put(`/products/${existingProduct._id}`, {
+      const updates = {
         ...existingProduct,
         stock: newStock,
-      });
+      };
+
+      if (updateBatchCost) {
+        if (batchBaseCost) updates.baseCost = parseFloat(batchBaseCost);
+        if (batchExchangeRate) updates.purchaseExchangeRate = parseFloat(batchExchangeRate);
+        if (batchBaseCost && batchExchangeRate) {
+          updates.costPrice = parseFloat(batchBaseCost) * parseFloat(batchExchangeRate);
+        }
+      }
+
+      const { data } = await api.put(`/products/${existingProduct._id}`, updates);
       
       setExistingProduct(data);
       toast.success(`Stock updated! New quantity: ${newStock}`);
       setStockUpdateQty(1);
+      setUpdateBatchCost(false);
       
       // Update cached products
       const cached = await offlineData.get('products');
@@ -157,6 +205,12 @@ export default function StockIn() {
         ...form,
         stock: form.quantity,
         barcode: form.barcode?.trim() || undefined,
+        costPrice: form.costPrice ? parseFloat(form.costPrice) : (form.baseCost && form.purchaseExchangeRate ? parseFloat(form.baseCost) * parseFloat(form.purchaseExchangeRate) : 0),
+        sellingPrice: parseFloat(form.sellingPrice),
+        pricingMode: form.pricingMode || 'fixed',
+        currency: form.pricingMode !== 'fixed' ? form.currency : undefined,
+        baseCost: form.pricingMode !== 'fixed' && form.baseCost ? parseFloat(form.baseCost) : undefined,
+        purchaseExchangeRate: form.pricingMode !== 'fixed' && form.purchaseExchangeRate ? parseFloat(form.purchaseExchangeRate) : undefined,
         expirationDate: form.category === 'food' ? form.expirationDate : undefined,
       };
       
@@ -307,6 +361,40 @@ export default function StockIn() {
                     <span style={{ marginLeft: '8px', fontWeight: 700 }}>{formatCurrency(existingProduct.sellingPrice)}</span>
                   </div>
                 </div>
+
+                {/* Below Replacement Warning */}
+                {(existingProduct.isBelowReplacementCost || (existingProduct.currentReplacementCost && existingProduct.sellingPrice < existingProduct.currentReplacementCost)) && (
+                  <div style={{
+                    marginTop: '12px',
+                    padding: '8px 10px',
+                    background: '#FEF2F2',
+                    border: '1px solid #FCA5A5',
+                    borderRadius: '8px',
+                    color: '#991B1B',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6
+                  }}>
+                    <AlertTriangle size={15} color="#DC2626" />
+                    <span>⚠️ Warning: Current replacement cost is {formatCurrency(existingProduct.currentReplacementCost)}, which is above selling price!</span>
+                  </div>
+                )}
+
+                {/* Currency & Replacement details if linked */}
+                {existingProduct.pricingMode && existingProduct.pricingMode !== 'fixed' && (
+                  <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px dashed var(--green-200)', fontSize: '12.5px', color: '#374151' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <span>Base Purchase Cost:</span>
+                      <strong>{existingProduct.baseCost} {existingProduct.currency || 'USD'}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <span>Current Replacement Cost:</span>
+                      <strong style={{ color: '#1E40AF' }}>{formatCurrency(existingProduct.currentReplacementCost || 0)}</strong>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="form-group">
@@ -336,6 +424,51 @@ export default function StockIn() {
                   </button>
                 </div>
               </div>
+
+              {/* Optional: Update purchase cost on restock */}
+              {existingProduct.pricingMode && existingProduct.pricingMode !== 'fixed' && (
+                <div style={{
+                  marginTop: '16px',
+                  padding: '12px',
+                  background: '#F9FAFB',
+                  border: '1px solid #E5E7EB',
+                  borderRadius: '8px'
+                }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={updateBatchCost}
+                      onChange={(e) => setUpdateBatchCost(e.target.checked)}
+                    />
+                    Update purchase cost/rate for this restock batch
+                  </label>
+
+                  {updateBatchCost && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontSize: '11px' }}>New Base Cost ({existingProduct.currency || 'USD'})</label>
+                        <input
+                          type="number"
+                          step="any"
+                          className="form-input"
+                          value={batchBaseCost}
+                          onChange={(e) => setBatchBaseCost(e.target.value)}
+                        />
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontSize: '11px' }}>Exchange Rate</label>
+                        <input
+                          type="number"
+                          step="any"
+                          className="form-input"
+                          value={batchExchangeRate}
+                          onChange={(e) => setBatchExchangeRate(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
                 <button 
@@ -400,7 +533,7 @@ export default function StockIn() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div className="form-group">
-                    <label className="form-label">Cost Price (RWF)</label>
+                    <label className="form-label">Cost Price ({currencySettings?.sellingCurrency || 'Local'})</label>
                     <input
                       className={`form-input ${errors.costPrice ? 'error' : ''}`}
                       type="number"
@@ -411,7 +544,7 @@ export default function StockIn() {
                     {errors.costPrice && <span className="form-error">{errors.costPrice}</span>}
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Selling Price (RWF)</label>
+                    <label className="form-label">Selling Price ({currencySettings?.sellingCurrency || 'Local'})</label>
                     <input
                       className={`form-input ${errors.sellingPrice ? 'error' : ''}`}
                       type="number"
@@ -421,6 +554,96 @@ export default function StockIn() {
                     />
                     {errors.sellingPrice && <span className="form-error">{errors.sellingPrice}</span>}
                   </div>
+                </div>
+
+                {/* Pricing Mode & Currency Strategy */}
+                <div style={{
+                  background: '#F9FAFB',
+                  border: '1px solid #E5E7EB',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <label className="form-label" style={{ margin: 0, fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <ShieldAlert size={14} color="var(--green-primary)" />
+                      Pricing Mode
+                    </label>
+                  </div>
+
+                  <select
+                    className="form-input"
+                    value={form.pricingMode || 'fixed'}
+                    onChange={(e) => setForm(prev => ({ ...prev, pricingMode: e.target.value }))}
+                  >
+                    <option value="fixed">Fixed Price ({currencySettings?.sellingCurrency || 'Local Currency'})</option>
+                    <option value="currency_linked">Currency-Linked (Exchange Rate)</option>
+                    <option value="replacement_protected">Replacement-Protected</option>
+                  </select>
+
+                  {form.pricingMode !== 'fixed' && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontSize: '11px' }}>Purchase Currency</label>
+                        <select
+                          className="form-input"
+                          value={form.currency || 'USD'}
+                          onChange={(e) => setForm(prev => ({ ...prev, currency: e.target.value }))}
+                        >
+                          {SUPPORTED_CURRENCIES.map(curr => (
+                            <option key={curr.code} value={curr.code}>{curr.code}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontSize: '11px' }}>Base Cost ({form.currency || 'USD'})</label>
+                        <input
+                          type="number"
+                          step="any"
+                          min="0"
+                          className="form-input"
+                          placeholder="e.g. 10.00"
+                          value={form.baseCost}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setForm(prev => {
+                              const newF = { ...prev, baseCost: val };
+                              const rate = parseFloat(newF.purchaseExchangeRate || currentRate?.rate || 0);
+                              if (rate > 0 && val) {
+                                newF.costPrice = (parseFloat(val) * rate).toFixed(2);
+                              }
+                              return newF;
+                            });
+                          }}
+                        />
+                      </div>
+
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label" style={{ fontSize: '11px' }}>Rate</label>
+                        <input
+                          type="number"
+                          step="any"
+                          className="form-input"
+                          placeholder={currentRate?.rate ? `Rate: ${currentRate.rate}` : "e.g. 3500"}
+                          value={form.purchaseExchangeRate}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setForm(prev => {
+                              const newF = { ...prev, purchaseExchangeRate: val };
+                              const base = parseFloat(newF.baseCost || 0);
+                              if (base > 0 && val) {
+                                newF.costPrice = (base * parseFloat(val)).toFixed(2);
+                              }
+                              return newF;
+                            });
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="form-group">

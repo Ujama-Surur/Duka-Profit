@@ -25,6 +25,8 @@ const CustomTooltip = ({ active, payload, label }) => {
   return null;
 };
 
+import CurrencyProtectionWidget from '../components/CurrencyProtectionWidget';
+
 export default function Dashboard() {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -32,6 +34,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [chartData, setChartData] = useState([]);
   const [recentSales, setRecentSales] = useState([]);
+  const [currencyProtection, setCurrencyProtection] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -60,6 +63,7 @@ export default function Dashboard() {
       setStats(dashboardResponse.data.stats);
       setChartData(dashboardResponse.data.chartData);
       setRecentSales(dashboardResponse.data.recentSales);
+      setCurrencyProtection(dashboardResponse.data.currencyProtection || null);
       
       // Cache for offline
       await offlineData.set('dashboard', dashboardResponse.data);
@@ -71,6 +75,7 @@ export default function Dashboard() {
         setStats(cached.stats);
         setChartData(cached.chartData);
         setRecentSales(cached.recentSales);
+        setCurrencyProtection(cached.currencyProtection || null);
         toast('Using offline data', { icon: <WifiOff size={16} /> });
       } else {
         toast.error('Failed to load dashboard');
@@ -159,6 +164,9 @@ export default function Dashboard() {
           </button>
         </div>
       </div>
+
+      {/* Currency Protection Alert / Summary Card */}
+      <CurrencyProtectionWidget data={currencyProtection} isOffline={!navigator.onLine} />
 
       {/* Stats Grid */}
       <div className={styles.statsGrid}>

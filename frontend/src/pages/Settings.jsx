@@ -5,7 +5,9 @@ import { useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api, { formatCurrency, formatDate } from '../utils/api';
 import styles from './Settings.module.css';
-import { User, Receipt, Globe, Lock, Key, Info, Save, CheckCircle, DollarSign, Check, AlertTriangle, Crown, Sparkles } from 'lucide-react';
+import { User, Receipt, Globe, Lock, Key, Info, Save, CheckCircle, DollarSign, Check, AlertTriangle, Crown, Sparkles, RefreshCw } from 'lucide-react';
+
+import { SUPPORTED_CURRENCIES, ROUNDING_OPTIONS } from '../utils/currencyUtils';
 
 const UkFlag = () => (
   <svg width="24" height="16" viewBox="0 0 60 30" style={{ borderRadius: '2px', boxShadow: '0 1px 3px rgba(0,0,0,0.15)' }}>
@@ -56,6 +58,7 @@ export default function Settings() {
 
   const SECTIONS = [
     { key: 'account', icon: <User size={20} />, label: 'Account' },
+    { key: 'currency', icon: <DollarSign size={20} />, label: 'Currency & Pricing' },
     { key: 'receipts', icon: <Receipt size={20} />, label: 'Receipts' },
     { key: 'language', icon: <Globe size={20} />, label: t('language') },
     { key: 'security', icon: <Lock size={20} />, label: 'Security' },
@@ -77,6 +80,59 @@ export default function Settings() {
   const [newLicenseKey, setNewLicenseKey] = useState('');
   const [activatingLicense, setActivatingLicense] = useState(false);
   const location = useLocation();
+
+  // Currency & Pricing Settings State
+  const [currencySettings, setCurrencySettings] = useState({
+    isEnabled: false,
+    baseCurrency: 'USD',
+    sellingCurrency: 'SSP',
+    exchangeRateMode: 'manual',
+    rateSource: 'manual',
+    minProtectionMargin: 0,
+    roundingRule: '100',
+  });
+  const [loadingCurrency, setLoadingCurrency] = useState(false);
+  const [savingCurrency, setSavingCurrency] = useState(false);
+
+  useEffect(() => {
+    if (activeSection === 'currency') {
+      loadCurrencySettings();
+    }
+  }, [activeSection]);
+
+  const loadCurrencySettings = async () => {
+    setLoadingCurrency(true);
+    try {
+      const { data } = await api.get('/currency/settings');
+      if (data) {
+        setCurrencySettings(data);
+        if (data.sellingCurrency) {
+          localStorage.setItem('duka_selling_currency', data.sellingCurrency);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load currency settings:', err);
+    } finally {
+      setLoadingCurrency(false);
+    }
+  };
+
+  const handleSaveCurrencySettings = async (e) => {
+    e.preventDefault();
+    setSavingCurrency(true);
+    try {
+      const { data } = await api.put('/currency/settings', currencySettings);
+      setCurrencySettings(data);
+      if (data.sellingCurrency) {
+        localStorage.setItem('duka_selling_currency', data.sellingCurrency);
+      }
+      toast.success('Currency & Pricing settings saved!');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to save currency settings.');
+    } finally {
+      setSavingCurrency(false);
+    }
+  };
 
   const handleActivateUserLicense = async (e) => {
     e.preventDefault();
@@ -210,6 +266,217 @@ export default function Settings() {
                   {savingProfile ? '...' : <><Save size={16} style={{marginRight:6}} /> {t('saveSettings')}</>}
                 </button>
               </form>
+            </div>
+          )}
+
+          {/* Currency & Pricing */}
+          {activeSection === 'currency' && (
+            <div className="card">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: 20 }}>
+                <div>
+                  <h2 className={styles.sectionTitle} style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
+                    <DollarSign size={20} /> Currency Protection & Dynamic Pricing
+                  </h2>
+                  <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: '4px 0 0' }}>
+                    Protect your store from currency depreciation by tracking replacement costs and suggested selling prices.
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <Link to="/pricing/rates" className="btn btn-secondary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <RefreshCw size={14} />
+                    <span>Manage Rates</span>
+                  </Link>
+                  <Link to="/pricing/review" className="btn btn-primary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <span>Price Review</span>
+                  </Link>
+                </div>
+              </div>
+
+              {loadingCurrency ? (
+                <div style={{ padding: '40px 0', textAlign: 'center' }}>
+                  <div className="spinner" />
+                </div>
+              ) : (
+                <form onSubmit={handleSaveCurrencySettings} className={styles.form}>
+                  
+                  {/* Enable Switch */}
+                  <div
+                    style={{
+                      background: currencySettings.isEnabled ? '#F0FDF4' : '#F9FAFB',
+                      border: currencySettings.isEnabled ? '1.5px solid #86EFAC' : '1px solid var(--border)',
+                      borderRadius: '10px',
+                      padding: '16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: '20px',
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--text-main)' }}>
+                        Enable Currency Protection
+                      </div>
+                      <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        Tracks replacement cost against active exchange rates and flags products sold below restocking value.
+                      </div>
+                    </div>
+                    <label className="switch" style={{ position: 'relative', display: 'inline-block', width: '48px', height: '26px' }}>
+                      <input
+                        type="checkbox"
+                        checked={currencySettings.isEnabled}
+                        onChange={(e) => setCurrencySettings(prev => ({ ...prev, isEnabled: e.target.checked }))}
+                        style={{ opacity: 0, width: 0, height: 0 }}
+                      />
+                      <span
+                        style={{
+                          position: 'absolute',
+                          cursor: 'pointer',
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          backgroundColor: currencySettings.isEnabled ? 'var(--green-primary)' : '#CBD5E1',
+                          borderRadius: '26px',
+                          transition: '0.3s',
+                        }}
+                      >
+                        <span
+                          style={{
+                            position: 'absolute',
+                            content: '""',
+                            height: '20px',
+                            width: '20px',
+                            left: currencySettings.isEnabled ? '24px' : '3px',
+                            bottom: '3px',
+                            backgroundColor: 'white',
+                            borderRadius: '50%',
+                            transition: '0.3s',
+                          }}
+                        />
+                      </span>
+                    </label>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                    {/* Base Currency */}
+                    <div className="form-group">
+                      <label className="form-label">
+                        Base / Purchase Reference Currency
+                      </label>
+                      <select
+                        className="form-input"
+                        value={currencySettings.baseCurrency}
+                        onChange={(e) => setCurrencySettings(prev => ({ ...prev, baseCurrency: e.target.value }))}
+                      >
+                        {SUPPORTED_CURRENCIES.map(c => (
+                          <option key={c.code} value={c.code}>
+                            {c.code} — {c.name} ({c.symbol})
+                          </option>
+                        ))}
+                      </select>
+                      <small style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+                        The reference currency used when purchasing wholesale inventory (e.g. USD).
+                      </small>
+                    </div>
+
+                    {/* Selling Currency */}
+                    <div className="form-group">
+                      <label className="form-label">
+                        Local / Selling Currency
+                      </label>
+                      <select
+                        className="form-input"
+                        value={currencySettings.sellingCurrency}
+                        onChange={(e) => setCurrencySettings(prev => ({ ...prev, sellingCurrency: e.target.value }))}
+                      >
+                        {SUPPORTED_CURRENCIES.map(c => (
+                          <option key={c.code} value={c.code}>
+                            {c.code} — {c.name} ({c.symbol})
+                          </option>
+                        ))}
+                      </select>
+                      <small style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+                        The local currency your shop charges customers at the counter (e.g. SSP, RWF).
+                      </small>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                    {/* Exchange Rate Mode */}
+                    <div className="form-group">
+                      <label className="form-label">Exchange Rate Mode</label>
+                      <select
+                        className="form-input"
+                        value={currencySettings.exchangeRateMode}
+                        onChange={(e) => setCurrencySettings(prev => ({ ...prev, exchangeRateMode: e.target.value }))}
+                      >
+                        <option value="manual">Manual Rate Entry (Business Controlled)</option>
+                        <option value="automatic">Automatic Reference Rate</option>
+                      </select>
+                    </div>
+
+                    {/* Rate Source */}
+                    <div className="form-group">
+                      <label className="form-label">Default Rate Source</label>
+                      <select
+                        className="form-input"
+                        value={currencySettings.rateSource}
+                        onChange={(e) => setCurrencySettings(prev => ({ ...prev, rateSource: e.target.value }))}
+                      >
+                        <option value="manual">Manual Entry / Bureau</option>
+                        <option value="supplier">Supplier Invoiced Rate</option>
+                        <option value="api">Bank / Reference API Rate</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+                    {/* Rounding Rule */}
+                    <div className="form-group">
+                      <label className="form-label">Suggested Price Rounding Rule</label>
+                      <select
+                        className="form-input"
+                        value={currencySettings.roundingRule}
+                        onChange={(e) => setCurrencySettings(prev => ({ ...prev, roundingRule: e.target.value }))}
+                      >
+                        {ROUNDING_OPTIONS.map(opt => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Min Protection Margin */}
+                    <div className="form-group">
+                      <label className="form-label">
+                        Minimum Safety Buffer Margin (%)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        className="form-input"
+                        placeholder="e.g. 10"
+                        value={currencySettings.minProtectionMargin}
+                        onChange={(e) => setCurrencySettings(prev => ({ ...prev, minProtectionMargin: parseFloat(e.target.value) || 0 }))}
+                      />
+                      <small style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+                        Triggers price review alert if selling price drops below replacement cost + this safety margin.
+                      </small>
+                    </div>
+                  </div>
+
+                  <div style={{ padding: '12px 16px', background: '#F8FAFC', borderRadius: '8px', marginBottom: '20px', fontSize: '13px', color: 'var(--text-muted)' }}>
+                    🛡️ <strong>Safety Guarantee:</strong> Duka Profit will never update customer-facing selling prices automatically. Suggested prices generated from exchange rate changes must always be reviewed and approved by you.
+                  </div>
+
+                  <button type="submit" className="btn btn-primary" disabled={savingCurrency}>
+                    {savingCurrency ? 'Saving...' : <><Save size={16} style={{ marginRight: 6 }} /> Save Currency Settings</>}
+                  </button>
+                </form>
+              )}
             </div>
           )}
 

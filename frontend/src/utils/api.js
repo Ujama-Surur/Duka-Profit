@@ -72,14 +72,18 @@ api.interceptors.response.use(
 export default api;
 
 // Format currency
-export const formatCurrency = (amount, currency = "RWF") => {
-  if (amount === undefined || amount === null) return `0 ${currency}`;
-  return `${Number(amount).toLocaleString("en-RW")} ${currency}`;
+export const formatCurrency = (amount, currency = null) => {
+  const activeCurrency = currency || localStorage.getItem('duka_selling_currency') || "RWF";
+  if (amount === undefined || amount === null) return `0 ${activeCurrency}`;
+  return `${Number(amount).toLocaleString("en-US")} ${activeCurrency}`;
 };
 
 // Format date
 export const formatDate = (date) => {
-  return new Date(date).toLocaleDateString("en-RW", {
+  if (!date) return "—";
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-RW", {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -87,7 +91,10 @@ export const formatDate = (date) => {
 };
 
 export const formatTime = (date) => {
-  return new Date(date).toLocaleTimeString("en-RW", {
+  if (!date) return "—";
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleTimeString("en-RW", {
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -157,10 +164,33 @@ export const syncPendingOperations = async () => {
 
   // Group operations by type
   const salesOps = queue.filter(op => op.url === '/sales' && op.method === 'post');
-  const otherOps = queue.filter(op => !(op.url === '/sales' && op.method === 'post'));
+  const rateOps = queue.filter(op => op.url === '/currency/rate' && op.method === 'post');
+  const otherOps = queue.filter(op => !(op.url === '/sales' && op.method === 'post') && !(op.url === '/currency/rate' && op.method === 'post'));
 
   let synced = 0;
   const remaining = [];
+
+  // Batch sync exchange rate operations
+  if (rateOps.length > 0) {
+    try {
+      const ratePayloads = rateOps.map(op => ({
+        ...op.data,
+        offlineSyncId: op.id,
+        timestamp: op.timestamp,
+      }));
+      const res = await api.post('/currency/batch-sync-rates', { rates: ratePayloads });
+      if (res.data.synced > 0) {
+        synced += res.data.synced;
+        toast.success(`Synced ${res.data.synced} offline exchange rate(s)`);
+      }
+      if (res.data.conflicts && res.data.conflicts.length > 0) {
+        toast.error(`Warning: ${res.data.conflicts.length} exchange rate conflict(s) detected during offline sync. Please review Rate History.`);
+      }
+    } catch (err) {
+      console.error('Rate sync error:', err);
+      rateOps.forEach(op => remaining.push(op));
+    }
+  }
 
   // Batch sync sales operations
   if (salesOps.length > 0) {

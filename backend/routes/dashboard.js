@@ -93,6 +93,43 @@ router.get('/', async (req, res) => {
       product: s.productId,
     }));
 
+    // Currency protection summary
+    let currencyProtection = {
+      isEnabled: false,
+      baseCurrency: 'USD',
+      sellingCurrency: 'SSP',
+      currentRate: null,
+      rateChangePercent: 0,
+      productsNeedingReview: 0,
+      productsBelowReplacement: 0,
+      totalReplacementGap: 0,
+    };
+
+    try {
+      const exchangeRateService = require('../services/exchangeRateService');
+      const currencySettings = await exchangeRateService.getCurrencySettings(userId);
+      currencyProtection.isEnabled = currencySettings.isEnabled;
+      currencyProtection.baseCurrency = currencySettings.baseCurrency || 'USD';
+      currencyProtection.sellingCurrency = currencySettings.sellingCurrency || 'SSP';
+
+      if (currencySettings.isEnabled) {
+        const activeRate = await exchangeRateService.getCurrentRate(
+          userId,
+          currencySettings.baseCurrency,
+          currencySettings.sellingCurrency
+        );
+        currencyProtection.currentRate = activeRate?.rate || null;
+        currencyProtection.rateChangePercent = activeRate?.changePercent || 0;
+
+        const reviewProducts = await exchangeRateService.getProductsForReview(userId);
+        currencyProtection.productsNeedingReview = reviewProducts.length;
+        currencyProtection.productsBelowReplacement = reviewProducts.filter(p => p.isBelowReplacementCost).length;
+        currencyProtection.totalReplacementGap = reviewProducts.reduce((sum, p) => sum + ((p.replacementGap || 0) * (p.stock || 0)), 0);
+      }
+    } catch (currErr) {
+      console.warn('Non-fatal: could not compute currency protection metrics for dashboard:', currErr.message);
+    }
+
     res.json({
       stats: {
         todayProfit,
@@ -108,6 +145,7 @@ router.get('/', async (req, res) => {
       },
       chartData,
       recentSales: mappedRecent,
+      currencyProtection,
     });
   } catch (err) {
     console.error('Dashboard error:', err);

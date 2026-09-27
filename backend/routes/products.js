@@ -95,34 +95,100 @@ router.post('/', [
   body('lowStockThreshold').optional().isInt({ min: 0 }).withMessage('Low stock threshold must be a non-negative integer'),
   body('category').optional({ values: 'falsy' }).trim().isLength({ max: 100 }),
   body('unitType').optional({ values: 'falsy' }).trim().isLength({ max: 50 }),
-  body('productImageUrl').optional({ values: 'falsy' }).trim(),
+  body('pricingMode').optional().isIn(['fixed', 'currency_linked', 'replacement_protected']),
+  body('currency').optional({ values: 'falsy' }).trim().isLength({ min: 3, max: 3 }),
+  body('baseCost').optional({ values: 'falsy' }).isFloat({ min: 0 }),
+  body('purchaseExchangeRate').optional({ values: 'falsy' }).isFloat({ gt: 0 }),
+  body('targetMargin').optional({ values: 'falsy' }).isFloat({ min: 0 }),
   validate,
 ], async (req, res) => {
   try {
-    const { productName, barcode, costPrice = 0, sellingPrice = 0, quantity = 0, expirationDate, stock = 0, lowStockThreshold = 10, category, unitType, productImageUrl } = req.body;
+    const { 
+      productName, 
+      barcode, 
+      costPrice = 0, 
+      sellingPrice = 0, 
+      quantity = 0, 
+      expirationDate, 
+      stock = 0, 
+      lowStockThreshold = 10, 
+      category, 
+      unitType, 
+      productImageUrl,
+      pricingMode = 'fixed',
+      currency,
+      baseCost,
+      purchaseExchangeRate,
+      targetMargin = 15,
+    } = req.body;
 
     const parsedCost = parseFloat(costPrice || 0);
     const parsedSell = parseFloat(sellingPrice || 0);
+    const parsedBaseCost = (baseCost !== undefined && baseCost !== null && baseCost !== '') ? parseFloat(baseCost) : 0;
+    const parsedPurchaseRate = (purchaseExchangeRate !== undefined && purchaseExchangeRate !== null && purchaseExchangeRate !== '') ? parseFloat(purchaseExchangeRate) : 1;
+    const parsedTargetMargin = (targetMargin !== undefined && targetMargin !== null && targetMargin !== '') ? parseFloat(targetMargin) : 15;
 
-    if (parsedSell > 0 && parsedSell <= parsedCost) {
+    // If baseCost and purchaseExchangeRate are provided, ensure local cost is aligned
+    let finalCost = parsedCost;
+    if (finalCost === 0 && parsedBaseCost > 0 && parsedPurchaseRate > 0) {
+      finalCost = Math.round(parsedBaseCost * parsedPurchaseRate * 100) / 100;
+    }
+
+    if (parsedSell > 0 && parsedSell <= finalCost) {
       return res.status(400).json({ message: 'Selling price must be higher than cost price.' });
     }
     if ((category || 'other').toLowerCase() === 'food' && !expirationDate && parsedSell > 0) {
       return res.status(400).json({ message: 'Expiration date is required for food items.' });
     }
 
+    // Get currency settings to determine current rate and replacement cost
+    const exchangeRateService = require('../services/exchangeRateService');
+    const settings = await exchangeRateService.getCurrencySettings(req.user._id);
+    const productCurrency = currency ? currency.toUpperCase() : (settings.baseCurrency || 'USD');
+    const sellingCurrency = settings.sellingCurrency || 'SSP';
+
+    let currentReplacementCost = 0;
+    let suggestedSellingPrice = 0;
+    let priceReviewRequired = false;
+
+    if (parsedBaseCost > 0) {
+      const activeRate = await exchangeRateService.getCurrentRate(req.user._id, productCurrency, sellingCurrency);
+      const effectiveRate = activeRate?.rate || parsedPurchaseRate;
+      currentReplacementCost = exchangeRateService.roundPrice(parsedBaseCost * effectiveRate, settings.roundingRule);
+      suggestedSellingPrice = exchangeRateService.roundPrice(currentReplacementCost * (1 + parsedTargetMargin / 100), settings.roundingRule);
+
+      if (pricingMode !== 'fixed') {
+        if (parsedSell > 0 && parsedSell < currentReplacementCost) {
+          priceReviewRequired = true;
+        } else if (pricingMode === 'currency_linked' && parsedSell > 0 && parsedSell !== suggestedSellingPrice) {
+          priceReviewRequired = true;
+        }
+      }
+    }
+
+    // If selling price was 0 but suggested selling price was calculated, optionally initialize it
+    const finalSellingPrice = parsedSell > 0 ? parsedSell : suggestedSellingPrice;
+
     const productData = {
       userId: req.user._id,
       productName,
       ...(barcode ? { barcode: String(barcode).trim() } : {}),
-      costPrice: parsedCost,
-      sellingPrice: parsedSell,
+      costPrice: finalCost,
+      sellingPrice: finalSellingPrice,
       quantity: parseInt(quantity || 0),
       stock: parseInt(quantity || 0),
       lowStockThreshold: parseInt(lowStockThreshold || 10),
       category: category || 'other',
       unitType: unitType || 'pieces',
       productImageUrl,
+      pricingMode,
+      currency: parsedBaseCost > 0 ? productCurrency : null,
+      baseCost: parsedBaseCost,
+      purchaseExchangeRate: parsedPurchaseRate,
+      currentReplacementCost,
+      suggestedSellingPrice,
+      targetMargin: parsedTargetMargin,
+      priceReviewRequired,
     };
     
     // Only add expirationDate if provided and it's a food item
@@ -130,11 +196,7 @@ router.post('/', [
       productData.expirationDate = new Date(expirationDate);
     }
     
-    console.log('Creating product with data:', productData);
-    
     const product = await Product.create(productData);
-    
-    console.log('Product created successfully:', product);
 
     res.status(201).json(product);
   } catch (err) {
@@ -161,21 +223,47 @@ router.put('/:id', [
   body('lowStockThreshold').optional().isInt({ min: 0 }).withMessage('Low stock threshold must be a non-negative integer'),
   body('category').optional({ values: 'falsy' }).trim().isLength({ max: 100 }),
   body('unitType').optional({ values: 'falsy' }).trim().isLength({ max: 50 }),
-  body('productImageUrl').optional({ values: 'falsy' }).trim(),
+  body('pricingMode').optional().isIn(['fixed', 'currency_linked', 'replacement_protected']),
+  body('currency').optional({ values: 'falsy' }).trim().isLength({ min: 3, max: 3 }),
+  body('baseCost').optional({ values: 'falsy' }).isFloat({ min: 0 }),
+  body('purchaseExchangeRate').optional({ values: 'falsy' }).isFloat({ gt: 0 }),
+  body('targetMargin').optional({ values: 'falsy' }).isFloat({ min: 0 }),
+  body('priceReviewRequired').optional().isBoolean(),
   validate,
 ], async (req, res) => {
   try {
     const product = await Product.findOne({ _id: req.params.id, userId: req.user._id });
     if (!product) return res.status(404).json({ message: 'Product not found.' });
 
-    const { productName, barcode, costPrice, sellingPrice, quantity, expirationDate, stock, lowStockThreshold, category, unitType, productImageUrl } = req.body;
+    const { 
+      productName, 
+      barcode, 
+      costPrice, 
+      sellingPrice, 
+      quantity, 
+      expirationDate, 
+      stock, 
+      lowStockThreshold, 
+      category, 
+      unitType, 
+      productImageUrl,
+      pricingMode,
+      currency,
+      baseCost,
+      purchaseExchangeRate,
+      targetMargin,
+      priceReviewRequired,
+    } = req.body;
 
-    const newCost = parseFloat(costPrice ?? product.costPrice);
-    const newSell = parseFloat(sellingPrice ?? product.sellingPrice);
+    const newCost = costPrice !== undefined ? parseFloat(costPrice) : product.costPrice;
+    const newSell = sellingPrice !== undefined ? parseFloat(sellingPrice) : product.sellingPrice;
 
-    if (newSell <= newCost) {
+    // Validate sellingPrice > costPrice only when prices are explicitly being modified or provided
+    if ((costPrice !== undefined || sellingPrice !== undefined) && !(newSell === 0 && newCost === 0) && newSell <= newCost) {
       return res.status(400).json({ message: 'Selling price must be higher than cost price.' });
     }
+
+    const oldSellingPrice = product.sellingPrice;
 
     if (productName !== undefined) product.productName = productName;
     if (barcode !== undefined) product.barcode = barcode ? String(barcode).trim() : undefined;
@@ -184,6 +272,31 @@ router.put('/:id', [
     if (quantity !== undefined) product.quantity = parseInt(quantity);
     if (unitType !== undefined) product.unitType = unitType;
     if (productImageUrl !== undefined) product.productImageUrl = productImageUrl;
+    if (pricingMode !== undefined) product.pricingMode = pricingMode;
+    if (currency !== undefined) product.currency = currency ? currency.toUpperCase() : null;
+    if (baseCost !== undefined) product.baseCost = (baseCost === null || baseCost === '') ? 0 : parseFloat(baseCost);
+    if (purchaseExchangeRate !== undefined) product.purchaseExchangeRate = (purchaseExchangeRate === null || purchaseExchangeRate === '') ? 1 : parseFloat(purchaseExchangeRate);
+    if (targetMargin !== undefined) product.targetMargin = (targetMargin === null || targetMargin === '') ? 15 : parseFloat(targetMargin);
+    if (priceReviewRequired !== undefined) product.priceReviewRequired = Boolean(priceReviewRequired);
+
+    // Recalculate replacement cost & suggested price if base cost is present
+    if (product.baseCost > 0) {
+      const exchangeRateService = require('../services/exchangeRateService');
+      const settings = await exchangeRateService.getCurrencySettings(req.user._id);
+      const productCurr = product.currency || settings.baseCurrency || 'USD';
+      const activeRate = await exchangeRateService.getCurrentRate(req.user._id, productCurr, settings.sellingCurrency || 'SSP');
+      const effectiveRate = activeRate?.rate || product.purchaseExchangeRate || 1;
+
+      product.currentReplacementCost = exchangeRateService.roundPrice(product.baseCost * effectiveRate, settings.roundingRule);
+      product.suggestedSellingPrice = exchangeRateService.roundPrice(
+        product.currentReplacementCost * (1 + (product.targetMargin || 15) / 100),
+        settings.roundingRule
+      );
+
+      if (product.pricingMode !== 'fixed') {
+        product.priceReviewRequired = product.sellingPrice < product.currentReplacementCost;
+      }
+    }
     
     // Only update expirationDate if provided and it's a food item
     const targetCategory = category !== undefined ? category : product.category;
@@ -203,6 +316,26 @@ router.put('/:id', [
     if (lowStockThreshold !== undefined) product.lowStockThreshold = parseInt(lowStockThreshold);
 
     await product.save();
+
+    // If selling price was manually updated, create an audit record
+    if (sellingPrice !== undefined && oldSellingPrice !== newSell) {
+      const PriceChangeHistory = require('../models/PriceChangeHistory');
+      await PriceChangeHistory.create({
+        userId: req.user._id,
+        productId: product._id,
+        productName: product.productName,
+        previousSellingPrice: oldSellingPrice,
+        newSellingPrice: newSell,
+        costPrice: product.costPrice,
+        replacementCost: product.currentReplacementCost,
+        exchangeRate: product.purchaseExchangeRate,
+        currencyPair: `${product.currency || 'USD'}/LOCAL`,
+        reason: 'Manual edit in product catalog',
+        changedBy: req.user._id,
+        changedAt: new Date(),
+      }).catch(e => console.error('PriceChangeHistory log error:', e));
+    }
+
     res.json(product);
   } catch (err) {
     if (err.code === 11000 && err.keyPattern?.barcode) {

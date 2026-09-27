@@ -22,7 +22,10 @@ import {
   Archive,
   DollarSign,
   ClipboardList,
-  Crown
+  Crown,
+  ShieldAlert,
+  RefreshCw,
+  WifiOff
 } from 'lucide-react';
 
 const NAV_SECTIONS = [
@@ -52,6 +55,8 @@ const NAV_SECTIONS = [
     items: [
       { path: '/dashboard', icon: <TrendingUp size={19} />, key: 'dashboard' },
       { path: '/finance', icon: <DollarSign size={19} />, key: 'finance' },
+      { path: '/pricing/review', icon: <ShieldAlert size={19} />, key: 'priceReview', currencyOnly: true, badge: 'FX' },
+      { path: '/pricing/rates', icon: <RefreshCw size={19} />, key: 'exchangeRates', currencyOnly: true },
       { path: '/reports', icon: <BarChart2 size={19} />, key: 'reports' },
       { path: '/daily-report', icon: <ClipboardList size={19} />, key: 'dailyCashReport' },
     ]
@@ -78,6 +83,7 @@ const LayoutEnhanced = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   const hasPremiumAccess = user?.role === 'admin' || isSubscriptionActive || hasEntitlement('CHECKOUT');
+  const hasCurrencyAccess = user?.role === 'admin' || isSubscriptionActive || hasEntitlement('CURRENCY_PROTECTION');
 
   // Global F2 keyboard shortcut to open POS checkout
   useEffect(() => {
@@ -234,7 +240,7 @@ const LayoutEnhanced = () => {
                   <div style={{ height: '1px', background: 'var(--border)', margin: '8px 8px' }} />
                 )}
                 {filteredItems.map(item => {
-                  const isLocked = item.premiumOnly && !hasPremiumAccess;
+                  const isLocked = (item.premiumOnly && !hasPremiumAccess) || (item.currencyOnly && !hasCurrencyAccess);
                   return (
                     <NavLink
                       key={item.path}
