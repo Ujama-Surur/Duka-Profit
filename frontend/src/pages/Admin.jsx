@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import api, { formatCurrency, formatDate } from '../utils/api';
 import styles from './Admin.module.css';
-import { Lock, BarChart3, Key, Users, TrendingUp, Coins, CreditCard, Crown, Sparkles, Clock } from 'lucide-react';
+import { Lock, BarChart3, Key, Users, TrendingUp, Coins, CreditCard, Crown, Sparkles, Clock, Eye, Check, Copy } from 'lucide-react';
 
 export default function Admin() {
   const { t } = useTranslation();
@@ -20,6 +20,17 @@ export default function Admin() {
   const [subscriptions, setSubscriptions] = useState([]);
   const [payments, setPayments] = useState([]);
   const [extendingId, setExtendingId] = useState(null);
+
+  // Manual Payments State
+  const [manualPayments, setManualPayments] = useState([]);
+  const [pendingPaymentsCount, setPendingPaymentsCount] = useState(0);
+  const [manualStatusFilter, setManualStatusFilter] = useState('pending');
+  const [confirmApproveModal, setConfirmApproveModal] = useState(null);
+  const [confirmRejectModal, setConfirmRejectModal] = useState(null);
+  const [rejectReasonInput, setRejectReasonInput] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
+  const [previewScreenshot, setPreviewScreenshot] = useState(null);
+  const [copiedKey, setCopiedKey] = useState(null);
 
   // License generation state
   const [licenseForm, setLicenseForm] = useState({
@@ -40,7 +51,7 @@ export default function Admin() {
         api.get('/admin/users'),
         api.get('/admin/billing/overview').catch(() => ({ data: null })),
         api.get('/admin/subscriptions').catch(() => ({ data: { subscriptions: [] } })),
-        api.get('/admin/payments').catch(() => ({ data: { payments: [] } })),
+        api.get(`/admin/payments?status=${manualStatusFilter}`).catch(() => ({ data: { payments: [], requests: [], pendingCount: 0 } })),
       ]);
       
       setStats(statsRes.data);
@@ -49,11 +60,66 @@ export default function Admin() {
       if (billingRes.data) setBillingOverview(billingRes.data);
       if (subsRes.data?.subscriptions) setSubscriptions(subsRes.data.subscriptions);
       if (paymentsRes.data?.payments) setPayments(paymentsRes.data.payments);
+      if (Array.isArray(paymentsRes.data?.requests)) {
+        setManualPayments(paymentsRes.data.requests);
+      }
+      if (typeof paymentsRes.data?.pendingCount === 'number') {
+        setPendingPaymentsCount(paymentsRes.data.pendingCount);
+      }
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
       toast.error('Failed to load dashboard data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadManualPayments = async (status = manualStatusFilter) => {
+    try {
+      const { data } = await api.get(`/admin/payments?status=${status}`);
+      if (Array.isArray(data?.requests)) {
+        setManualPayments(data.requests);
+      }
+      if (typeof data?.pendingCount === 'number') {
+        setPendingPaymentsCount(data.pendingCount);
+      }
+    } catch (err) {
+      console.error('Failed to load manual payments:', err);
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!confirmApproveModal) return;
+    setActionLoading(true);
+    try {
+      const { data } = await api.patch(`/admin/payments/${confirmApproveModal._id}/approve`);
+      toast.success(data.message || 'Payment approved and license key issued! 🎉');
+      setConfirmApproveModal(null);
+      await loadManualPayments(manualStatusFilter);
+      loadDashboardData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to approve payment');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!confirmRejectModal) return;
+    setActionLoading(true);
+    try {
+      await api.patch(`/admin/payments/${confirmRejectModal._id}/reject`, {
+        reason: rejectReasonInput,
+      });
+      toast.success('Payment request marked as rejected.');
+      setConfirmRejectModal(null);
+      setRejectReasonInput('');
+      await loadManualPayments(manualStatusFilter);
+      loadDashboardData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to reject payment');
+    } finally {
+      setActionLoading(false);
     }
   };
   const toggleUserStatus = async (userId, currentStatus) => {
@@ -158,6 +224,12 @@ export default function Admin() {
             <span className={styles.statNumber}>{stats.activeLicenses || 0}</span>
             <span className={styles.statLabel}>Active Licenses</span>
           </div>
+          <div className={styles.statCard}>
+            <span className={styles.statNumber} style={{ color: pendingPaymentsCount > 0 ? '#EF4444' : 'inherit' }}>
+              {pendingPaymentsCount}
+            </span>
+            <span className={styles.statLabel}>Pending MoMo</span>
+          </div>
         </div>
       </div>
 
@@ -167,6 +239,31 @@ export default function Admin() {
           onClick={() => setActiveTab('overview')}
         >
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><BarChart3 size={16} /> Overview</span>
+        </button>
+        <button
+          className={`${styles.tab} ${activeTab === 'manualPayments' ? styles.active : ''}`}
+          onClick={() => {
+            setActiveTab('manualPayments');
+            loadManualPayments(manualStatusFilter);
+          }}
+        >
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <CreditCard size={16} /> Manual Payments
+            {pendingPaymentsCount > 0 && (
+              <span
+                style={{
+                  background: '#EF4444',
+                  color: '#FFFFFF',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  padding: '1px 6px',
+                  borderRadius: '10px',
+                }}
+              >
+                {pendingPaymentsCount}
+              </span>
+            )}
+          </span>
         </button>
         <button
           className={`${styles.tab} ${activeTab === 'licenses' ? styles.active : ''}`}
@@ -184,7 +281,7 @@ export default function Admin() {
           className={`${styles.tab} ${activeTab === 'billing' ? styles.active : ''}`}
           onClick={() => setActiveTab('billing')}
         >
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><CreditCard size={16} /> SaaS Subscriptions & Billing</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Coins size={16} /> SaaS Billing</span>
         </button>
       </div>
 
@@ -577,7 +674,270 @@ export default function Admin() {
             </div>
           </div>
         )}
+
+        {/* Manual Mobile Money Payments Section */}
+        {activeTab === 'manualPayments' && (
+          <div className={styles.licenseSection}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Manual Mobile Money Payments</h2>
+                <p style={{ color: 'var(--text-muted)', margin: '4px 0 0', fontSize: '13.5px' }}>
+                  Verify customer MTN MoMo and Airtel Money payments against your statement and issue licenses.
+                </p>
+              </div>
+
+              {/* Status Filter Tabs */}
+              <div style={{ display: 'flex', gap: 8 }}>
+                {['all', 'pending', 'approved', 'rejected'].map((s) => (
+                  <button
+                    key={s}
+                    className={`btn btn-sm ${manualStatusFilter === s ? 'btn-primary' : 'btn-ghost'}`}
+                    onClick={() => {
+                      setManualStatusFilter(s);
+                      loadManualPayments(s);
+                    }}
+                    style={{ textTransform: 'capitalize' }}
+                  >
+                    {s} {s === 'pending' && pendingPaymentsCount > 0 ? `(${pendingPaymentsCount})` : ''}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className={styles.licenseTable}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Customer</th>
+                    <th>Plan</th>
+                    <th>Network</th>
+                    <th>Transaction ID</th>
+                    <th>Ref</th>
+                    <th>Amount Paid</th>
+                    <th>Receipt</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {manualPayments.length > 0 ? (
+                    manualPayments.map((p) => {
+                      const isPending = p.status === 'pending';
+                      const isApproved = p.status === 'approved';
+                      const isRejected = p.status === 'rejected';
+
+                      const statusClass = isApproved
+                        ? styles.active
+                        : isPending
+                        ? styles.trial
+                        : styles.expired;
+
+                      return (
+                        <tr key={p._id}>
+                          <td style={{ fontSize: '0.85rem' }}>{formatDate(p.createdAt)}</td>
+                          <td>
+                            <div style={{ fontWeight: 600 }}>{p.customerName || p.user?.name}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                              {p.customerPhone || p.user?.phone}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                              {p.user?.email}
+                            </div>
+                          </td>
+                          <td>
+                            <span style={{ fontWeight: 700, textTransform: 'capitalize' }}>{p.plan}</span>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                              Exp: {p.amountExpected ? p.amountExpected.toLocaleString() : 0} RWF
+                            </div>
+                          </td>
+                          <td>
+                            <span
+                              style={{
+                                fontWeight: 700,
+                                fontSize: '0.8rem',
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                background: p.network === 'MTN' ? '#FEF3C7' : '#EFF6FF',
+                                color: p.network === 'MTN' ? '#92400E' : '#1E40AF',
+                              }}
+                            >
+                              {p.network}
+                            </span>
+                          </td>
+                          <td>
+                            <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '0.85rem' }}>
+                              {p.transactionId}
+                            </span>
+                          </td>
+                          <td>
+                            <span style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                              {p.reference}
+                            </span>
+                          </td>
+                          <td>
+                            <strong style={{ color: p.amountPaid >= p.amountExpected ? 'var(--green-primary)' : '#DC2626' }}>
+                              {p.amountPaid ? p.amountPaid.toLocaleString() : 0} RWF
+                            </strong>
+                          </td>
+                          <td>
+                            {p.screenshotUrl ? (
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-ghost"
+                                onClick={() => setPreviewScreenshot(p.screenshotUrl)}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 8px' }}
+                              >
+                                <Eye size={13} /> View
+                              </button>
+                            ) : (
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>None</span>
+                            )}
+                          </td>
+                          <td>
+                            <span className={`${styles.status} ${statusClass}`}>
+                              {p.status}
+                            </span>
+                          </td>
+                          <td>
+                            {isPending ? (
+                              <div className={styles.actions}>
+                                <button
+                                  className="btn btn-sm btn-primary"
+                                  onClick={() => setConfirmApproveModal(p)}
+                                  title="Approve and generate license key"
+                                  style={{ padding: '4px 8px' }}
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  className="btn btn-sm btn-danger"
+                                  onClick={() => {
+                                    setConfirmRejectModal(p);
+                                    setRejectReasonInput('');
+                                  }}
+                                  title="Reject request"
+                                  style={{ padding: '4px 8px' }}
+                                >
+                                  Reject
+                                </button>
+                              </div>
+                            ) : isApproved ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: '#047857' }}>
+                                  {p.licenseKey || p.licenseId?.key}
+                                </span>
+                                <button
+                                  className="btn btn-sm btn-ghost"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(p.licenseKey || p.licenseId?.key || '');
+                                    setCopiedKey(p._id);
+                                    setTimeout(() => setCopiedKey(null), 2000);
+                                  }}
+                                  title="Copy license key"
+                                  style={{ padding: '2px 4px' }}
+                                >
+                                  {copiedKey === p._id ? <Check size={12} color="#10B981" /> : <Copy size={12} />}
+                                </button>
+                              </div>
+                            ) : (
+                              <span style={{ fontSize: '0.75rem', color: '#EF4444' }} title={p.rejectReason}>
+                                {p.rejectReason ? p.rejectReason.slice(0, 18) + '...' : 'Rejected'}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan="10" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                        No manual payment requests found for this filter.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Approve Confirmation Modal */}
+      {confirmApproveModal && (
+        <div className="modal-overlay" onClick={() => setConfirmApproveModal(null)} role="dialog" aria-modal="true">
+          <div className="card" style={{ maxWidth: 460, margin: '40px auto', padding: '24px' }} onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ fontSize: '18px', fontWeight: 800, marginBottom: '12px' }}>
+              Confirm Payment Approval
+            </h3>
+            <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '16px' }}>
+              Are you sure you verified payment for <strong>{confirmApproveModal.customerName}</strong>?
+            </p>
+            <div style={{ background: 'var(--bg-subtle)', padding: '12px', borderRadius: '8px', fontSize: '13px', marginBottom: '20px' }}>
+              <div>Plan: <strong>{confirmApproveModal.plan} Pro</strong></div>
+              <div>Amount: <strong>{confirmApproveModal.amountPaid ? confirmApproveModal.amountPaid.toLocaleString() : 0} RWF</strong> ({confirmApproveModal.network})</div>
+              <div>Transaction ID: <strong style={{ fontFamily: 'monospace' }}>{confirmApproveModal.transactionId}</strong></div>
+            </div>
+            <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginBottom: '20px' }}>
+              Clicking <strong>Approve & Issue Key</strong> will automatically generate a new cryptographic license key, bind it to this user, and send an email notification.
+            </p>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button className="btn btn-ghost btn-full" onClick={() => setConfirmApproveModal(null)} disabled={actionLoading}>
+                Cancel
+              </button>
+              <button className="btn btn-primary btn-full" onClick={handleApprove} disabled={actionLoading}>
+                {actionLoading ? 'Approving...' : 'Approve & Issue Key'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Reason Modal */}
+      {confirmRejectModal && (
+        <div className="modal-overlay" onClick={() => setConfirmRejectModal(null)} role="dialog" aria-modal="true">
+          <div className="card" style={{ maxWidth: 460, margin: '40px auto', padding: '24px' }} onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ fontSize: '18px', fontWeight: 800, marginBottom: '12px', color: '#DC2626' }}>
+              Reject Payment Request
+            </h3>
+            <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '16px' }}>
+              Rejecting request for <strong>{confirmRejectModal.customerName}</strong> (Transaction ID: {confirmRejectModal.transactionId}).
+            </p>
+            <div className="form-group" style={{ marginBottom: '20px' }}>
+              <label className="form-label">Reason for Rejection *</label>
+              <textarea
+                className="form-input"
+                rows="3"
+                placeholder="e.g. Transaction ID was not found on our MoMo statement, or amount is incorrect."
+                value={rejectReasonInput}
+                onChange={(e) => setRejectReasonInput(e.target.value)}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button className="btn btn-ghost btn-full" onClick={() => setConfirmRejectModal(null)} disabled={actionLoading}>
+                Cancel
+              </button>
+              <button className="btn btn-danger btn-full" onClick={handleReject} disabled={actionLoading}>
+                {actionLoading ? 'Rejecting...' : 'Reject Request'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Screenshot Preview Modal */}
+      {previewScreenshot && (
+        <div className="modal-overlay" onClick={() => setPreviewScreenshot(null)} role="dialog" aria-modal="true">
+          <div className="card" style={{ maxWidth: 600, width: '90%', margin: '40px auto', padding: '16px', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ margin: '0 0 12px', fontSize: '16px' }}>Receipt Screenshot</h3>
+            <img src={previewScreenshot} alt="Receipt" style={{ maxWidth: '100%', maxHeight: '70vh', borderRadius: '6px', objectFit: 'contain' }} />
+            <div style={{ marginTop: '14px' }}>
+              <button className="btn btn-ghost" onClick={() => setPreviewScreenshot(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

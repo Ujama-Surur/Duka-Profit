@@ -39,6 +39,16 @@ const licenseSchema = new mongoose.Schema({
     type: Date,
     default: null,
   },
+  plan: {
+    type: String,
+    default: 'standard',
+    trim: true,
+  },
+  paymentRequest: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'PaymentRequest',
+    default: null,
+  },
 }, {
   timestamps: true,
 });

@@ -25,7 +25,8 @@ import {
   Crown,
   ShieldAlert,
   RefreshCw,
-  WifiOff
+  WifiOff,
+  CreditCard,
 } from 'lucide-react';
 
 const NAV_SECTIONS = [
@@ -66,6 +67,7 @@ const NAV_SECTIONS = [
     key: 'management',
     items: [
       { path: '/subscription', icon: <Crown size={19} />, key: 'subscription', badge: 'PRO' },
+      { path: '/my-payments', icon: <CreditCard size={19} />, key: 'myPayments' },
       { path: '/admin', icon: <Lock size={19} />, key: 'admin', adminOnly: true },
       { path: '/settings', icon: <Settings size={19} />, key: 'settings' },
     ]

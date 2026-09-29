@@ -38,6 +38,7 @@ const Stock = lazy(() => import("./pages/Stock"));
 const Finance = lazy(() => import("./pages/Finance"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const Subscription = lazy(() => import("./pages/Subscription"));
+const MyPayments = lazy(() => import("./pages/MyPayments"));
 const PaymentVerify = lazy(() => import("./pages/PaymentVerify"));
 const PriceReview = lazy(() => import("./pages/PriceReview"));
 const ExchangeRates = lazy(() => import("./pages/ExchangeRates"));
@@ -244,6 +245,7 @@ export default function App() {
                   </CurrencyProtectionRoute>
                 } />
                 <Route path="/subscription" element={<Subscription />} />
+                <Route path="/my-payments" element={<MyPayments />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route
                   path="/admin"

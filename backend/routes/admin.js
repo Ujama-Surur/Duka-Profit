@@ -427,50 +427,6 @@ router.get("/subscriptions", protect, adminOnly, async (req, res) => {
   }
 });
 
-// GET /api/admin/payments - List all payments with pagination and filters
-router.get("/payments", protect, adminOnly, async (req, res) => {
-  try {
-    const { page = 1, limit = 50, status, search } = req.query;
-    const skip = (page - 1) * limit;
-
-    let query = {};
-    if (status && status !== "all") {
-      query.status = status;
-    }
-
-    if (search) {
-      query.$or = [
-        { transactionReference: { $regex: search, $options: "i" } },
-        { providerTransactionId: { $regex: search, $options: "i" } },
-      ];
-    }
-
-    const [payments, total] = await Promise.all([
-      Payment.find(query)
-        .populate("userId", "name email phone")
-        .populate("planId", "name slug price currency")
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(parseInt(limit))
-        .lean(),
-      Payment.countDocuments(query),
-    ]);
-
-    res.json({
-      success: true,
-      payments,
-      pagination: {
-        current: parseInt(page),
-        pages: Math.ceil(total / limit),
-        total,
-      },
-    });
-  } catch (err) {
-    console.error("Admin payments error:", err);
-    res.status(500).json({ message: "Failed to fetch payments." });
-  }
-});
-
 // POST /api/admin/subscriptions/:id/extend - Manually extend a subscription by N days
 router.post("/subscriptions/:id/extend", protect, adminOnly, async (req, res) => {
   try {

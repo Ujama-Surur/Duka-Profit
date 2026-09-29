@@ -211,6 +211,7 @@ if (process.env.NODE_ENV !== "test") {
 }
 
 // Routes
+app.use("/api", require("./routes/manualPayments"));
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/admin", require("./routes/admin"));
 app.use("/api/admin-manage", require("./routes/admin-manage"));
@@ -229,6 +230,7 @@ app.use("/api/transactions", require("./routes/transactions"));
 app.use("/api/plans", require("./routes/plans"));
 app.use("/api/subscriptions", require("./routes/subscriptions"));
 app.use("/api/payments", require("./routes/payments"));
+app.use("/uploads/receipts", express.static(path.join(__dirname, "uploads/receipts")));
 app.use("/api/daily-reports", require("./routes/daily-reports"));
 app.use("/api/currency", require("./routes/currency"));
 

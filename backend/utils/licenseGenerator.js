@@ -1,20 +1,20 @@
 const crypto = require('crypto');
 
 /**
- * Generate a license key in format: DUKA-XXXX-XXXX
+ * Generate a cryptographically secure license key in format: DUKA-XXXX-XXXX-XXXX
  * Uses uppercase letters and numbers
  * @returns {string} Generated license key
  */
 function generateLicenseKey() {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Exclude ambiguous chars like 0, O, 1, I
   const segments = [];
   
-  // Generate two segments of 4 characters each
-  for (let i = 0; i < 2; i++) {
+  // Generate 3 segments of 4 characters each (12 chars total)
+  for (let i = 0; i < 3; i++) {
+    const bytes = crypto.randomBytes(4);
     let segment = '';
     for (let j = 0; j < 4; j++) {
-      const randomIndex = crypto.randomInt(0, chars.length);
-      segment += chars[randomIndex];
+      segment += chars[bytes[j] % chars.length];
     }
     segments.push(segment);
   }
@@ -39,13 +39,14 @@ function generateMultipleKeys(count = 1) {
 }
 
 /**
- * Validate license key format
+ * Validate license key format (supports both 3-segment and legacy 2-segment)
  * @param {string} key - License key to validate
  * @returns {boolean} True if valid format
  */
 function validateLicenseKey(key) {
-  const pattern = /^DUKA-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
-  return pattern.test(key);
+  if (!key || typeof key !== 'string') return false;
+  const pattern = /^DUKA(-[A-Z0-9]{4}){2,3}$/i;
+  return pattern.test(key.trim());
 }
 
 module.exports = {
