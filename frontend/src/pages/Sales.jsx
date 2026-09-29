@@ -5,7 +5,17 @@ import toast from 'react-hot-toast';
 import api, { formatCurrency, formatDate, formatTime, offlineData } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import styles from './Sales.module.css';
-import { ShoppingCart, Zap, Hash, Banknote, Coins, BarChart3, WifiOff, CheckCircle2, Printer, Utensils, Smartphone, Shirt, Home, Package, Search, SlidersHorizontal, X } from 'lucide-react';
+import { ShoppingCart, Zap, Hash, Banknote, Coins, BarChart3, WifiOff, CheckCircle2, Printer, Utensils, Smartphone, Shirt, Home, Package, Search, SlidersHorizontal, X, Trash2 } from 'lucide-react';
+
+const escapeHtml = (str) => {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
 
 export default function Sales() {
   const { t } = useTranslation();
@@ -19,6 +29,8 @@ export default function Sales() {
 
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [showSuccess, setShowSuccess] = useState(null);
+  const [voidConfirmSale, setVoidConfirmSale] = useState(null);
+  const [voiding, setVoiding] = useState(false);
 
   // History Filter States
   const [historySearch, setHistorySearch] = useState('');
@@ -220,12 +232,50 @@ export default function Sales() {
 
 
 
+  const handleVoidSale = async (saleId) => {
+    setVoiding(true);
+    try {
+      await api.delete(`/sales/${saleId}`);
+      toast.success('Sale voided successfully');
+      setVoidConfirmSale(null);
+      loadSales();
+      loadData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to void sale');
+    } finally {
+      setVoiding(false);
+    }
+  };
+
   const printReceipt = (sale) => {
     const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Could not open print window. Please allow popups.');
+      return;
+    }
+    const storeTitle = escapeHtml(user?.storeName || 'Duka Profit');
+    const header = user?.receiptHeader ? `<div class="receipt-header">${escapeHtml(user.receiptHeader)}</div>` : '';
+    const footer = escapeHtml(user?.receiptFooter || 'Thank you for your purchase!');
+    const customerInfo = sale.paymentMethod === 'credit' && sale.customerName ? `
+      <div style="text-align: right; color: #444; font-size: 13px; margin-top: 5px;">
+        <strong>Customer:</strong> ${escapeHtml(sale.customerName)}
+        ${sale.customerPhone ? `<br/><strong>Phone:</strong> ${escapeHtml(sale.customerPhone)}` : ''}
+      </div>
+    ` : '';
+
+    const itemsHtml = (sale.items || []).map(item => `
+      <tr>
+        <td>${escapeHtml(item.productName)}</td>
+        <td>${escapeHtml(item.quantity)}</td>
+        <td>${formatCurrency(item.unitPrice)}</td>
+        <td>${formatCurrency(item.subtotal)}</td>
+      </tr>
+    `).join('');
+
     printWindow.document.write(`
       <html>
         <head>
-          <title>Receipt #${sale._id}</title>
+          <title>Receipt #${escapeHtml(sale._id)}</title>
           <style>
             body { font-family: Arial, sans-serif; padding: 20px; max-width: 400px; margin: 0 auto; }
             h1 { text-align: center; color: #06C; margin-bottom: 5px; }
@@ -241,34 +291,22 @@ export default function Sales() {
           </style>
         </head>
         <body>
-          <h1>${user?.storeName || 'Duka Profit'}</h1>
-          ${user?.receiptHeader ? `<div class="receipt-header">${user.receiptHeader}</div>` : ''}
-          <div class="receipt-id">Receipt #${sale._id}</div>
+          <h1>${storeTitle}</h1>
+          ${header}
+          <div class="receipt-id">Receipt #${escapeHtml(sale._id)}</div>
           <div class="date">${formatDate(new Date(sale.createdAt))} ${formatTime(sale.createdAt)}</div>
           <table>
             <thead>
               <tr><th>Item</th><th>Qty</th><th>Price</th><th>Subtotal</th></tr>
             </thead>
             <tbody>
-              ${sale.items.map(item => `
-                <tr>
-                  <td>${item.productName}</td>
-                  <td>${item.quantity}</td>
-                  <td>${formatCurrency(item.unitPrice)}</td>
-                  <td>${formatCurrency(item.subtotal)}</td>
-                </tr>
-              `).join('')}
+              ${itemsHtml}
             </tbody>
           </table>
           <div class="total">Total: ${formatCurrency(sale.totalAmount)}</div>
-          <div class="payment">Payment: ${sale.paymentMethod || 'CASH'}</div>
-          ${sale.paymentMethod === 'credit' && sale.customerName ? `
-            <div style="text-align: right; color: #444; font-size: 13px; margin-top: 5px;">
-              <strong>Customer:</strong> ${sale.customerName}
-              ${sale.customerPhone ? `<br/><strong>Phone:</strong> ${sale.customerPhone}` : ''}
-            </div>
-          ` : ''}
-          <div class="thank-you">${user?.receiptFooter || 'Thank you for your purchase!'}</div>
+          <div class="payment">Payment: ${escapeHtml(sale.paymentMethod || 'CASH')}</div>
+          ${customerInfo}
+          <div class="thank-you">${footer}</div>
         </body>
       </html>
     `);
@@ -357,7 +395,7 @@ export default function Sales() {
             <form onSubmit={handleSubmit} className={styles.form}>
               {/* Product Selection */}
               <div className="form-group">
-                <label className="form-label">{t('selectProduct')}</label>
+                <label className="form-label" htmlFor="sale-product-select">{t('selectProduct')}</label>
                 {products.length === 0 ? (
                   <div className={styles.noProducts}>
                     <span>Warning</span>
@@ -365,6 +403,7 @@ export default function Sales() {
                   </div>
                 ) : (
                   <select
+                    id="sale-product-select"
                     className={`form-input form-input-lg ${errors.productId ? 'error' : ''}`}
                     value={form.productId}
                     onChange={e => setForm(prev => ({...prev, productId: e.target.value}))}
@@ -419,10 +458,11 @@ export default function Sales() {
 
               {/* Quantity */}
               <div className="form-group">
-                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Hash size={16} /> {t('quantity')}</label>
+                <label className="form-label" htmlFor="sale-quantity-input" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Hash size={16} /> {t('quantity')}</label>
                 <div className={styles.quantityRow}>
                   <button type="button" className={styles.qtyBtn} onClick={() => setForm(p => ({...p, quantity: Math.max(1, p.quantity - 1)}))}>−</button>
                   <input
+                    id="sale-quantity-input"
                     className={`form-input form-input-lg ${styles.qtyInput} ${errors.quantity ? 'error' : ''}`}
                     type="number"
                     min="1"
@@ -717,7 +757,21 @@ export default function Sales() {
                         )}
                       </p>
                     </div>
-                    <span className="profit-pill">+{formatCurrency(sale.profit)}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span className="profit-pill">+{formatCurrency(sale.profit)}</span>
+                      {!sale.offline && (
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-icon btn-sm"
+                          style={{ color: '#EF4444', padding: '4px 6px' }}
+                          onClick={() => setVoidConfirmSale(sale)}
+                          title="Void Sale"
+                          aria-label="Void Sale"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -725,6 +779,59 @@ export default function Sales() {
           </div>
         </div>
       </div>
+
+      {/* Void confirmation modal */}
+      {voidConfirmSale && (
+        <div 
+          className="modal-overlay" 
+          onClick={(e) => e.target === e.currentTarget && setVoidConfirmSale(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="void-modal-title"
+        >
+          <div className="card" style={{ maxWidth: 400, margin: '40px auto', padding: '24px' }}>
+            <div style={{ textAlign: "center", marginBottom: 20 }}>
+              <div style={{ 
+                width: 56, 
+                height: 56, 
+                borderRadius: '50%', 
+                background: '#FEF2F2', 
+                color: '#DC2626', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                margin: '0 auto 14px' 
+              }}>
+                <Trash2 size={28} />
+              </div>
+              <h3 id="void-modal-title" style={{ fontSize: 18, fontWeight: 800 }}>Void This Sale?</h3>
+              <p style={{ color: "var(--text-muted)", marginTop: 8, fontSize: '13.5px' }}>
+                Are you sure you want to void sale of{" "}
+                <strong>{voidConfirmSale.productName || voidConfirmSale.product?.productName || 'product'}</strong> ({voidConfirmSale.quantity} units)?
+                This will reverse the financial entry and restore product inventory.
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button
+                type="button"
+                className="btn btn-ghost btn-full"
+                onClick={() => setVoidConfirmSale(null)}
+                disabled={voiding}
+              >
+                {t("cancel")}
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger btn-full"
+                onClick={() => handleVoidSale(voidConfirmSale._id)}
+                disabled={voiding}
+              >
+                {voiding ? "Voiding..." : "Void Sale"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Success Animation */}
       {showSuccess && (

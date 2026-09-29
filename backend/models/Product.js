@@ -186,7 +186,13 @@ productSchema.virtual('daysUntilExpiration').get(function () {
 
 // Compound index for fast queries per user
 productSchema.index({ userId: 1, productName: 1 });
-productSchema.index({ userId: 1, barcode: 1 }, { unique: true, sparse: true });
+productSchema.index(
+  { userId: 1, barcode: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { barcode: { $type: "string", $gt: "" } },
+  }
+);
 productSchema.index({ userId: 1, priceReviewRequired: 1 });
 
 module.exports = mongoose.model('Product', productSchema);

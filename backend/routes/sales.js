@@ -320,7 +320,22 @@ router.post('/batch-sync', [
     // Process each sale
     for (const saleData of sales) {
       try {
-        const { productId, quantity, paymentMethod = 'cash', customerName, customerPhone } = saleData;
+        const { productId, quantity, paymentMethod = 'cash', customerName, customerPhone, offlineSyncId } = saleData;
+
+        // Idempotency check for offline sync
+        if (offlineSyncId) {
+          const existingSale = await Sale.findOne({ userId: req.user._id, offlineSyncId })
+            .populate('productId', 'productName category costPrice sellingPrice')
+            .lean();
+          if (existingSale) {
+            results.push({
+              ...existingSale,
+              product: existingSale.productId,
+              alreadySynced: true,
+            });
+            continue;
+          }
+        }
 
         if (!['cash', 'momo', 'card', 'bank', 'credit'].includes(paymentMethod)) {
           errors.push({ 
@@ -369,6 +384,7 @@ router.post('/batch-sync', [
           paymentMethod,
           customerName: paymentMethod === 'credit' ? customerName : undefined,
           customerPhone: paymentMethod === 'credit' ? customerPhone : undefined,
+          offlineSyncId: offlineSyncId || undefined,
           profit: 0,
           revenue: 0,
         });
@@ -439,6 +455,21 @@ router.delete('/:id', [
     const saleDate = new Date(sale.createdAt);
     if (saleDate.toDateString() !== today.toDateString()) {
       return res.status(400).json({ message: 'Can only void sales from today.' });
+    }
+
+    // Restore product stock upon voiding
+    if (sale.productId && sale.quantity) {
+      await Product.findByIdAndUpdate(sale.productId, {
+        $inc: { stock: sale.quantity }
+      }).catch(err => console.error('Error restoring stock on void:', err));
+    } else if (sale.items && sale.items.length > 0) {
+      for (const item of sale.items) {
+        if (item.productId && item.quantity) {
+          await Product.findByIdAndUpdate(item.productId, {
+            $inc: { stock: item.quantity }
+          }).catch(err => console.error('Error restoring checkout stock on void:', err));
+        }
+      }
     }
 
     await sale.deleteOne();

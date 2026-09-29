@@ -117,13 +117,16 @@ export default function Reports() {
         doc.setFontSize(13);
         doc.text('Sales Details', 14, doc.lastAutoTable.finalY + 14);
 
-        const salesRows = data.sales.map(s => [
-          formatDate(s.createdAt),
-          s.product?.productName || 'Unknown',
-          String(s.quantity),
-          formatCurrency(s.quantity * (s.product?.sellingPrice || 0)),
-          formatCurrency(s.profit),
-        ]);
+        const salesRows = data.sales.map(s => {
+          const revenue = s.revenue ?? s.totalAmount ?? (s.quantity * (s.sellingPriceSnapshot || s.product?.sellingPrice || 0));
+          return [
+            formatDate(s.createdAt),
+            s.product?.productName || s.productName || 'Unknown',
+            String(s.quantity),
+            formatCurrency(revenue),
+            formatCurrency(s.profit),
+          ];
+        });
 
         autoTable(doc, {
           startY: doc.lastAutoTable.finalY + 18,
@@ -142,7 +145,7 @@ export default function Reports() {
         doc.setFontSize(9);
         doc.setTextColor(150);
         doc.text(`Duka Profit — Page ${i} of ${pageCount}`, 14, 285);
-        doc.text('www.dukaprofit.rw', 160, 285);
+        doc.text('www.dukaprofit.com', 160, 285);
       }
 
       doc.save(`duka-report-${period}-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
@@ -161,16 +164,21 @@ export default function Reports() {
       return;
     }
     const headers = ['Date', 'Product', 'Category', 'Quantity', 'Cost Price', 'Selling Price', 'Revenue', 'Profit'];
-    const rows = data.sales.map(s => [
-      formatDate(s.createdAt),
-      s.product?.productName || 'Unknown',
-      s.product?.category || 'other',
-      s.quantity,
-      s.product?.costPrice || 0,
-      s.product?.sellingPrice || 0,
-      s.quantity * (s.product?.sellingPrice || 0),
-      s.profit,
-    ]);
+    const rows = data.sales.map(s => {
+      const revenue = s.revenue ?? s.totalAmount ?? (s.quantity * (s.sellingPriceSnapshot || s.product?.sellingPrice || 0));
+      const costPrice = s.costPriceSnapshot ?? s.costPrice ?? s.product?.costPrice ?? 0;
+      const sellingPrice = s.sellingPriceSnapshot ?? s.sellingPrice ?? s.product?.sellingPrice ?? 0;
+      return [
+        formatDate(s.createdAt),
+        s.product?.productName || s.productName || 'Unknown',
+        s.product?.category || s.category || 'other',
+        s.quantity,
+        costPrice,
+        sellingPrice,
+        revenue,
+        s.profit,
+      ];
+    });
     const csv = [headers, ...rows].map(row => row.map(v => `"${v}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -704,7 +712,7 @@ export default function Reports() {
                         <td style={{color:'var(--text-muted)',fontSize:13}}>{formatDate(sale.createdAt)}</td>
                         <td style={{fontFamily:'var(--font-display)',fontWeight:600}}>{sale.product?.productName || 'Unknown'}</td>
                         <td><span className="badge badge-gray">{sale.quantity}</span></td>
-                        <td style={{fontFamily:'var(--font-display)',fontWeight:600}}>{formatCurrency(sale.quantity * (sale.product?.sellingPrice || 0))}</td>
+                        <td style={{fontFamily:'var(--font-display)',fontWeight:600}}>{formatCurrency(sale.revenue ?? sale.totalAmount ?? (sale.quantity * (sale.sellingPriceSnapshot || sale.product?.sellingPrice || 0)))}</td>
                         <td><span className="profit-pill">+{formatCurrency(sale.profit)}</span></td>
                       </tr>
                     ))}

@@ -132,12 +132,14 @@ export const translations = {
   },
   rw: {
     translation: {
+      // Navigation
       dashboard: "Imbonerahamwe",
       products: "Ibicuruzwa",
       stock: "Ububiko",
       finance: "Ubuzire bw'Imari",
       inventoryOrders: "Kugura Ibicuruzwa",
       categoriesUnits: "Ibyiciro & Ibikoresho",
+      importProducts: "Kwinjiza Ibicuruzwa",
       sales: "Imigurire",
       reports: "Raporo",
       priceReview: "Isubiramo ry'Ibiciro",
@@ -146,6 +148,8 @@ export const translations = {
       dailyCashLoadError: "Ntibyashoboye gufata raporo y'umunsi",
       settings: "Igenamiterere",
       logout: "Sohoka",
+
+      // Auth
       login: "Injira",
       register: "Iyandikishe",
       email: "Imeyili",
@@ -158,15 +162,24 @@ export const translations = {
       signUp: "Iyandikishe",
       licenseKey: "Urufunguzo rw'uruhushya",
       enterLicense: "Injiza urufunguzo rw'uruhushya",
+      forgotPassword: "Wibagiwe ijambo ry'ibanga?",
       welcomeBack: "Murakaza neza!",
       createAccount: "Fungura konti yawe",
+
+      // Dashboard
       todayProfit: "Inyungu z'uyu munsi",
       weeklyProfit: "Inyungu z'icyumweru",
       monthlyProfit: "Inyungu z'ukwezi",
       totalSales: "Imigurire yose",
-      bestSelling: "Igicuruzwa cyurushya",
+      bestSelling: "Igicuruzwa kigurishwa cyane",
       recentSales: "Imigurire ya vuba",
       profitTrend: "Inzira y'inyungu",
+      noSalesToday: "Nta igurisha ryakozwe uyu munsi",
+      goodMorning: "Mwaramutse",
+      goodAfternoon: "Mwiriwe",
+      goodEvening: "Mwiriwe neza",
+
+      // Products
       addProduct: "Ongeraho igicuruzwa",
       editProduct: "Hindura igicuruzwa",
       deleteProduct: "Siba igicuruzwa",
@@ -175,9 +188,12 @@ export const translations = {
       sellingPrice: "Igiciro cy'igurisha",
       category: "Icyiciro",
       profit: "Inyungu",
-      profitMargin: "Umubare w'inyungu",
+      profitMargin: "Umubare w'inyungu (%)",
       noProducts: "Nta bicuruzwa bihari",
       addFirstProduct: "Ongeraho igicuruzwa cya mbere gutangira",
+      confirmDelete: "Urifuza koko gusiba iki gicuruzwa?",
+
+      // Sales
       recordSale: "Andika igurisha",
       selectProduct: "Hitamo igicuruzwa",
       quantity: "Umubare",
@@ -185,21 +201,58 @@ export const translations = {
       quickSale: "Igurisha ryihuse",
       todaySales: "Imigurire y'uyu munsi",
       saleRecorded: "Igurisha ryanditswe neza!",
+      voiceInput: "Gukoresha Ijwi",
+      listenNow: "Birumva...",
+      tapToSpeak: "Kanda uvuge",
+
+      // Reports
+      dailyReport: "Raporo y'Umunsi",
+      weeklyReport: "Raporo y'Icyumweru",
+      monthlyReport: "Raporo y'Ukwezi",
       exportPDF: "Sohora PDF",
       exportCSV: "Sohora CSV",
       totalProfit: "Inyungu zose",
       totalRevenue: "Amafaranga yinjiye",
+      totalCost: "Ikiguzi cyose",
+      salesCount: "Umubare w'imigurire",
+      dateRange: "Igihe cy'amatariki",
+      from: "Kuva",
+      to: "Kugeza",
+
+      // Settings
+      language: "Ururimi",
+      theme: "Insanganyamatsiko",
+      notifications: "Imenyesha",
+      account: "Konti",
+      license: "Uruhushya",
+      licenseStatus: "Imiterere y'uruhushya",
+      active: "Rurakora",
+      expired: "Rwararangiye",
+      deviceId: "Nimero y'igikoresho",
+      version: "Verisiyo",
+      darkMode: "Uburyo bwijimye",
+      saveSettings: "Bika Igenamiterere",
+      profileUpdated: "Umwirondoro wavuguruwe!",
+
+      // Common
       save: "Bika",
       cancel: "Reka",
       delete: "Siba",
       edit: "Hindura",
       search: "Shakisha",
       loading: "Birimo gutegurwa...",
+      error: "Ikosa",
+      success: "Byagenze neza",
       rwf: "RWF",
       date: "Itariki",
       actions: "Ibikorwa",
+      noData: "Nta makuru ahari",
+      sync: "Guhuza amakuru",
       offline: "Nta interineti",
       online: "Ufite interineti",
+      all: "Byose",
+
+      // Categories
       food: "Indyo & Inzoga",
       electronics: "Ikoranabuhanga",
       clothing: "Impuzu",
@@ -209,12 +262,14 @@ export const translations = {
   },
   sw: {
     translation: {
+      // Navigation
       dashboard: "Dashibodi",
       products: "Bidhaa",
       stock: "Stoki",
       finance: "Usimamizi wa Fedha",
       inventoryOrders: "Oda za Bidhaa",
       categoriesUnits: "Jamii na Vipimo",
+      importProducts: "Ingiza Bidhaa",
       sales: "Mauzo",
       reports: "Ripoti",
       priceReview: "Uhakiki wa Bei",
@@ -223,6 +278,8 @@ export const translations = {
       dailyCashLoadError: "Imeshindwa kupakia ripoti ya siku",
       settings: "Mipangilio",
       logout: "Toka",
+
+      // Auth
       login: "Ingia",
       register: "Jisajili",
       email: "Barua pepe",
@@ -235,14 +292,24 @@ export const translations = {
       signUp: "Jisajili",
       licenseKey: "Ufunguo wa leseni",
       enterLicense: "Weka ufunguo wa leseni",
+      forgotPassword: "Umesahau nywila?",
       welcomeBack: "Karibu tena!",
       createAccount: "Fungua akaunti yako",
+
+      // Dashboard
       todayProfit: "Faida ya leo",
       weeklyProfit: "Faida ya wiki",
       monthlyProfit: "Faida ya mwezi",
       totalSales: "Jumla ya mauzo",
       bestSelling: "Bidhaa inayouza zaidi",
       recentSales: "Mauzo ya hivi karibuni",
+      profitTrend: "Mwelekeo wa faida",
+      noSalesToday: "Hakuna mauzo yaliyorekodiwa leo",
+      goodMorning: "Habari za Asubuhi",
+      goodAfternoon: "Habari za Mchana",
+      goodEvening: "Habari za Jioni",
+
+      // Products
       addProduct: "Ongeza bidhaa",
       editProduct: "Hariri bidhaa",
       deleteProduct: "Futa bidhaa",
@@ -254,6 +321,9 @@ export const translations = {
       profitMargin: "Asilimia ya faida",
       noProducts: "Hakuna bidhaa bado",
       addFirstProduct: "Ongeza bidhaa yako ya kwanza kuanza",
+      confirmDelete: "Je, una uhakika unataka kufuta bidhaa hii?",
+
+      // Sales
       recordSale: "Rekodi mauzo",
       selectProduct: "Chagua bidhaa",
       quantity: "Kiasi",
@@ -261,21 +331,58 @@ export const translations = {
       quickSale: "Mauzo ya haraka",
       todaySales: "Mauzo ya leo",
       saleRecorded: "Mauzo yamerekodiwa!",
+      voiceInput: "Ingizo la Sauti",
+      listenNow: "Inasikiliza...",
+      tapToSpeak: "Gusa ili uzungumze",
+
+      // Reports
+      dailyReport: "Ripoti ya Siku",
+      weeklyReport: "Ripoti ya Wiki",
+      monthlyReport: "Ripoti ya Mwezi",
       exportPDF: "Hamisha PDF",
       exportCSV: "Hamisha CSV",
       totalProfit: "Jumla ya faida",
       totalRevenue: "Jumla ya mapato",
+      totalCost: "Jumla ya Gharama",
+      salesCount: "Idadi ya Mauzo",
+      dateRange: "Muda wa Tarehe",
+      from: "Kutoka",
+      to: "Hadi",
+
+      // Settings
+      language: "Lugha",
+      theme: "Mandhari",
+      notifications: "Arifa",
+      account: "Akaunti",
+      license: "Leseni",
+      licenseStatus: "Hali ya Leseni",
+      active: "Inafanya kazi",
+      expired: "Imeisha muda",
+      deviceId: "Kitambulisho cha Kifaa",
+      version: "Toleo",
+      darkMode: "Hali ya Giza",
+      saveSettings: "Hifadhi Mipangilio",
+      profileUpdated: "Wasifu umesasishwa!",
+
+      // Common
       save: "Hifadhi",
       cancel: "Ghairi",
       delete: "Futa",
       edit: "Hariri",
       search: "Tafuta",
       loading: "Inapakia...",
+      error: "Hitilafu",
+      success: "Imefaulu",
       rwf: "RWF",
       date: "Tarehe",
       actions: "Vitendo",
+      noData: "Hakuna data inayopatikana",
+      sync: "Sawazisha",
       offline: "Nje ya mtandao",
       online: "Mtandaoni",
+      all: "Yote",
+
+      // Categories
       food: "Chakula & Vinywaji",
       electronics: "Elektroniki",
       clothing: "Mavazi",
@@ -285,12 +392,14 @@ export const translations = {
   },
   fr: {
     translation: {
+      // Navigation
       dashboard: "Tableau de bord",
       products: "Produits",
       stock: "Inventaire du Stock",
       finance: "Finances",
       inventoryOrders: "Commandes de Stock",
       categoriesUnits: "Catégories & Unités",
+      importProducts: "Importer des Produits",
       sales: "Ventes",
       reports: "Rapports",
       priceReview: "Révision des Prix",
@@ -299,6 +408,8 @@ export const translations = {
       dailyCashLoadError: "Échec du chargement du rapport journalier",
       settings: "Paramètres",
       logout: "Déconnexion",
+
+      // Auth
       login: "Connexion",
       register: "S'inscrire",
       email: "Email",
@@ -311,14 +422,24 @@ export const translations = {
       signUp: "S'inscrire",
       licenseKey: "Clé de licence",
       enterLicense: "Entrez votre clé de licence",
+      forgotPassword: "Mot de passe oublié ?",
       welcomeBack: "Bon retour!",
       createAccount: "Créez votre compte",
+
+      // Dashboard
       todayProfit: "Bénéfice du jour",
       weeklyProfit: "Bénéfice hebdomadaire",
       monthlyProfit: "Bénéfice mensuel",
       totalSales: "Total des ventes",
       bestSelling: "Meilleure vente",
       recentSales: "Ventes récentes",
+      profitTrend: "Tendance du profit",
+      noSalesToday: "Aucune vente enregistrée aujourd'hui",
+      goodMorning: "Bonjour",
+      goodAfternoon: "Bon après-midi",
+      goodEvening: "Bonsoir",
+
+      // Products
       addProduct: "Ajouter un produit",
       editProduct: "Modifier le produit",
       deleteProduct: "Supprimer le produit",
@@ -330,6 +451,9 @@ export const translations = {
       profitMargin: "Marge bénéficiaire",
       noProducts: "Aucun produit encore",
       addFirstProduct: "Ajoutez votre premier produit",
+      confirmDelete: "Êtes-vous sûr de vouloir supprimer ce produit ?",
+
+      // Sales
       recordSale: "Enregistrer une vente",
       selectProduct: "Sélectionner un produit",
       quantity: "Quantité",
@@ -337,21 +461,58 @@ export const translations = {
       quickSale: "Vente rapide",
       todaySales: "Ventes du jour",
       saleRecorded: "Vente enregistrée!",
+      voiceInput: "Saisie Vocale",
+      listenNow: "Écoute en cours...",
+      tapToSpeak: "Appuyez pour parler",
+
+      // Reports
+      dailyReport: "Rapport Journalier",
+      weeklyReport: "Rapport Hebdomadaire",
+      monthlyReport: "Rapport Mensuel",
       exportPDF: "Exporter PDF",
       exportCSV: "Exporter CSV",
       totalProfit: "Bénéfice total",
       totalRevenue: "Revenu total",
+      totalCost: "Coût Total",
+      salesCount: "Nombre de Ventes",
+      dateRange: "Période",
+      from: "Du",
+      to: "Au",
+
+      // Settings
+      language: "Langue",
+      theme: "Thème",
+      notifications: "Notifications",
+      account: "Compte",
+      license: "Licence",
+      licenseStatus: "État de la Licence",
+      active: "Active",
+      expired: "Expirée",
+      deviceId: "ID de l'appareil",
+      version: "Version",
+      darkMode: "Mode Sombre",
+      saveSettings: "Enregistrer les Paramètres",
+      profileUpdated: "Profil mis à jour !",
+
+      // Common
       save: "Sauvegarder",
       cancel: "Annuler",
       delete: "Supprimer",
       edit: "Modifier",
       search: "Rechercher",
       loading: "Chargement...",
+      error: "Erreur",
+      success: "Succès",
       rwf: "RWF",
       date: "Date",
       actions: "Actions",
+      noData: "Aucune donnée disponible",
+      sync: "Synchroniser",
       offline: "Hors ligne",
       online: "En ligne",
+      all: "Tous",
+
+      // Categories
       food: "Alimentation & Boissons",
       electronics: "Électronique",
       clothing: "Vêtements",

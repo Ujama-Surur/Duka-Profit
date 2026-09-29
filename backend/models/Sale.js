@@ -82,6 +82,11 @@ const saleSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+  offlineSyncId: {
+    type: String,
+    sparse: true,
+    trim: true,
+  },
 }, {
   timestamps: true,
   toJSON: { virtuals: true },
@@ -90,6 +95,13 @@ const saleSchema = new mongoose.Schema({
 // Indexes for fast time-range queries
 saleSchema.index({ userId: 1, createdAt: -1 });
 saleSchema.index({ userId: 1, productId: 1, createdAt: -1 });
+saleSchema.index(
+  { userId: 1, offlineSyncId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { offlineSyncId: { $type: "string", $gt: "" } },
+  }
+);
 
 // Pre-save: auto-calculate profit and revenue for single-item sales
 saleSchema.pre('save', function (next) {

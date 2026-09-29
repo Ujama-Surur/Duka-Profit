@@ -189,9 +189,17 @@ const authLimiter = rateLimit({
   },
 });
 
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10,
+  message: {
+    message: "Too many registration attempts, please try again later.",
+  },
+});
+
 app.use("/api/", limiter);
 app.use("/api/auth/login", authLimiter);
-app.use("/api/auth/register", authLimiter);
+app.use("/api/auth/register", registerLimiter);
 
 // Body parsing
 app.use(express.json({ limit: "10mb" }));
@@ -224,14 +232,6 @@ app.use("/api/payments", require("./routes/payments"));
 app.use("/api/daily-reports", require("./routes/daily-reports"));
 app.use("/api/currency", require("./routes/currency"));
 
-// Serve frontend in production
-if (process.env.NODE_ENV === "production") {
-  app.use(express.static(path.join(__dirname, "../frontend/dist")));
-  app.get("*", (req, res) => {
-    res.sendFile(path.join(__dirname, "../frontend/dist/index.html"));
-  });
-}
-
 // Health check
 app.get("/api/health", (req, res) => {
   res.json({
@@ -241,6 +241,19 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+// Serve frontend in production (exclude /api routes so API 404s work properly)
+if (process.env.NODE_ENV === "production") {
+  app.use(express.static(path.join(__dirname, "../frontend/dist")));
+  app.get(/^\/(?!api).*/, (req, res) => {
+    res.sendFile(path.join(__dirname, "../frontend/dist/index.html"));
+  });
+}
+
+// 404
+app.use((req, res) => {
+  res.status(404).json({ message: "Route not found" });
+});
+
 // Error handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
@@ -248,11 +261,6 @@ app.use((err, req, res, next) => {
     message: err.message || "Internal server error",
     ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
   });
-});
-
-// 404
-app.use((req, res) => {
-  res.status(404).json({ message: "Route not found" });
 });
 
 // Connect to MongoDB and start server
@@ -323,6 +331,39 @@ if (process.env.NODE_ENV !== "test") {
       } catch (seedErr) {
         console.warn("Could not seed default plans:", seedErr.message);
       }
+
+      // Ensure demo license exists
+      try {
+        const License = require("./models/License");
+        const demoLicense = await License.findOne({ key: "DUKA-DEMO-2024-FREE" });
+        if (!demoLicense) {
+          await License.create({
+            key: "DUKA-DEMO-2024-FREE",
+            type: "trial",
+            status: "active",
+            expiresAt: new Date(Date.now() + 3650 * 24 * 60 * 60 * 1000),
+          });
+          console.log("Seeded default demo license DUKA-DEMO-2024-FREE.");
+        }
+      } catch (licErr) {
+        console.warn("Demo license seed notice:", licErr.message);
+      }
+
+      // Ensure Product index migration for sparse barcode
+      try {
+        const Product = require("./models/Product");
+        const indexes = await Product.collection.indexes();
+        const barcodeIndex = indexes.find(idx => idx.name === "userId_1_barcode_1");
+        if (barcodeIndex && !barcodeIndex.partialFilterExpression) {
+          console.log("Dropping legacy sparse userId_1_barcode_1 index...");
+          await Product.collection.dropIndex("userId_1_barcode_1");
+          await Product.syncIndexes();
+          console.log("Rebuilt partialFilterExpression userId_1_barcode_1 index successfully.");
+        }
+      } catch (idxErr) {
+        console.warn("Index check notice:", idxErr.message);
+      }
+
       startServerWithPortRetry(PORT, MAX_PORT_RETRIES);
     })
     .catch((err) => {

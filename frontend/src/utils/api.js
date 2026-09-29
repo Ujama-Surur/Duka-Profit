@@ -195,7 +195,10 @@ export const syncPendingOperations = async () => {
   // Batch sync sales operations
   if (salesOps.length > 0) {
     try {
-      const salesData = salesOps.map(op => op.data);
+      const salesData = salesOps.map(op => ({
+        ...op.data,
+        offlineSyncId: op.id || generateUUID(),
+      }));
       const response = await api.post('/sales/batch-sync', { sales: salesData });
       
       if (response.data.success > 0) {

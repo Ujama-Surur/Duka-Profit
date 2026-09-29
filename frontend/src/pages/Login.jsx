@@ -86,8 +86,9 @@ export default function Login() {
         {forgotPasswordMode ? (
           <form onSubmit={handleForgotPassword} className={styles.form}>
             <div className="form-group">
-              <label className="form-label">{t('email')}</label>
+              <label className="form-label" htmlFor="reset-email">{t('email')}</label>
               <input
+                id="reset-email"
                 type="email"
                 className="form-input form-input-lg"
                 placeholder="your@email.com"
@@ -117,8 +118,9 @@ export default function Login() {
         ) : (
           <form onSubmit={handleSubmit} className={styles.form}>
             <div className="form-group">
-              <label className="form-label">{t('email')}</label>
+              <label className="form-label" htmlFor="login-email">{t('email')}</label>
               <input
+                id="login-email"
                 type="email"
                 className={`form-input form-input-lg ${errors.email ? 'error' : ''}`}
                 placeholder="your@email.com"
@@ -137,7 +139,7 @@ export default function Login() {
 
             <div className="form-group">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label className="form-label" style={{ margin: 0 }}>{t('password')}</label>
+                <label className="form-label" htmlFor="login-password" style={{ margin: 0 }}>{t('password')}</label>
                 <button 
                   type="button" 
                   style={{ background: 'none', border: 'none', color: 'var(--green-primary)', fontSize: '13px', cursor: 'pointer', fontWeight: 600 }}
@@ -148,6 +150,7 @@ export default function Login() {
               </div>
               <div className={styles.passwordWrapper}>
                 <input
+                  id="login-password"
                   type={showPassword ? 'text' : 'password'}
                   className={`form-input form-input-lg ${errors.password ? 'error' : ''} ${styles.passwordInput}`}
                   placeholder="•••••••"

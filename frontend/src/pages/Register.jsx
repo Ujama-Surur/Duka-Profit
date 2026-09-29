@@ -25,9 +25,10 @@ const FormField = ({
 
   return (
     <div className="form-group">
-      <label className="form-label">{label}</label>
+      <label htmlFor={id} className="form-label">{label}</label>
       <div className={isPasswordType ? styles.passwordWrapper : ""}>
         <input
+          id={id}
           type={currentType}
           className={`form-input ${errors[id] ? "error" : ""} ${isPasswordType ? styles.passwordInput : ""}`}
           placeholder={placeholder}
@@ -206,8 +207,9 @@ export default function Register() {
           />
 
           <div className="form-group">
-            <label className="form-label">{t("licenseKey")} (Optional)</label>
+            <label htmlFor="licenseKey" className="form-label">{t("licenseKey")} (Optional)</label>
             <input
+              id="licenseKey"
               type="text"
               className={`form-input ${errors.licenseKey ? "error" : ""}`}
               placeholder="DUKA-XXXX-XXXX-XXXX"

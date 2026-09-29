@@ -60,6 +60,24 @@ export default function Products() {
     loadCurrencyInfo();
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        if (confirmDelete) {
+          setConfirmDelete(null);
+        } else if (showScanner) {
+          setShowScanner(false);
+        } else if (showModal) {
+          closeModal();
+        }
+      }
+    };
+    if (showModal || confirmDelete || showScanner) {
+      window.addEventListener("keydown", handleKeyDown);
+      return () => window.removeEventListener("keydown", handleKeyDown);
+    }
+  }, [showModal, confirmDelete, showScanner]);
+
   const loadCurrencyInfo = async () => {
     try {
       const [settingsRes, rateRes] = await Promise.all([
@@ -1213,8 +1231,14 @@ export default function Products() {
 
       {/* Delete confirm */}
       {confirmDelete && (
-        <div className="modal-overlay">
-          <div className="card" style={{ maxWidth: 400, margin: '40px auto', padding: '24px' }}>
+        <div
+          className="modal-overlay"
+          onClick={(e) => e.target === e.currentTarget && setConfirmDelete(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-product-title"
+        >
+          <div className="card" style={{ maxWidth: 400, margin: '40px auto', padding: '24px' }} role="document">
             <div style={{ textAlign: "center", marginBottom: 20 }}>
               <div style={{ 
                 width: 56, 
@@ -1229,7 +1253,7 @@ export default function Products() {
               }}>
                 <Trash2 size={28} />
               </div>
-              <h3 style={{ fontSize: 18, fontWeight: 800 }}>Delete Product?</h3>
+              <h3 id="delete-product-title" style={{ fontSize: 18, fontWeight: 800 }}>Delete Product?</h3>
               <p style={{ color: "var(--text-muted)", marginTop: 8, fontSize: '13.5px' }}>
                 Are you sure you want to delete{" "}
                 <strong>{confirmDelete.productName}</strong>? This cannot be

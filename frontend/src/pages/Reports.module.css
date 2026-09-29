@@ -109,3 +109,9 @@
     font-size: 12px;
   }
 }
+
+@media (max-width: 480px) {
+  .summaryGrid {
+    grid-template-columns: 1fr;
+  }
+}
